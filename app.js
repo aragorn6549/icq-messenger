@@ -62,7 +62,7 @@ function showMainScreen() {
 }
 
 // Переключение между вкладками
-function showTab(tabName) {
+function showTab(tabName, event) {
     document.getElementById('login-form').style.display = 
         tabName === 'login' ? 'block' : 'none';
     document.getElementById('register-form').style.display = 
@@ -72,7 +72,17 @@ function showTab(tabName) {
     document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    event.target.classList.add('active');
+    
+    if (event) {
+        event.target.classList.add('active');
+    } else {
+        // Если event не передан, активируем нужную кнопку
+        document.querySelectorAll('.tab').forEach(tab => {
+            if (tab.textContent.includes(tabName === 'login' ? 'Вход' : 'Регистрация')) {
+                tab.classList.add('active');
+            }
+        });
+    }
 }
 
 // Вход
