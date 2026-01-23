@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICQ Messenger PWA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <!-- Иконка приложения -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <header class="header">
+            <h1>💬 ICQ Messenger</h1>
+            <div id="user-info" style="display: none;">
+                <span id="user-uin"></span>
+                <span id="user-status" class="status-offline"></span>
+                <button id="logout-btn">Выйти</button>
+            </div>
+        </header>
+
+        <!-- Экран авторизации -->
+        <div id="auth-screen" class="screen">
+            <h2>Добро пожаловать!</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('login')">Вход</button>
+                <button class="tab" onclick="showTab('register')">Регистрация</button>
+            </div>
+            
+            <!-- Форма входа -->
+            <div id="login-form" class="form">
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Пароль" required>
+                <button onclick="login()">Войти</button>
+                <p id="login-error" class="error"></p>
+            </div>
+            
+            <!-- Форма регистрации -->
+            <div id="register-form" class="form" style="display: none;">
+                <input type="email" id="reg-email" placeholder="Email" required>
+                <input type="password" id="reg-password" placeholder="Пароль (минимум 6 символов)" required>
+                <input type="text" id="reg-display-name" placeholder="Ваше имя (необязательно)">
+                <button onclick="register()">Зарегистрироваться</button>
+                <p id="register-error" class="error"></p>
+            </div>
+        </div>
+
+        <!-- Главный экран (будет скрыт до входа) -->
+        <div id="main-screen" class="screen" style="display: none;">
+            <!-- Боковая панель с контактами -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Контакты</h3>
+                    <button onclick="showAddContact()">+ Добавить</button>
+                </div>
+                <div id="contacts-list" class="contacts-list">
+                    <!-- Контакты будут здесь -->
+                </div>
+            </div>
+            
+            <!-- Область чата -->
+            <div class="chat-area">
+                <div id="chat-header" class="chat-header">
+                    <h3>Выберите контакт</h3>
+                </div>
+                <div id="messages-container" class="messages-container">
+                    <!-- Сообщения будут здесь -->
+                </div>
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="Введите сообщение..." disabled>
+                    <button id="send-btn" disabled>Отправить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Попап добавления контакта -->
+        <div id="add-contact-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3>Добавить контакт</h3>
+                <input type="number" id="uin-input" placeholder="Введите UIN друга">
+                <p class="hint">UIN - это уникальный номер пользователя</p>
+                <div class="modal-buttons">
+                    <button onclick="addContact()">Добавить</button>
+                    <button onclick="hideModal()">Отмена</button>
+                </div>
+                <p id="add-contact-error" class="error"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Наш JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
