@@ -142,28 +142,29 @@
         </div>
     </div>
 
-    <!-- Попап добавления контакта -->
-    <div id="add-contact-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>👤 Добавить контакт</h3>
-                <button class="close-modal" onclick="hideModal()">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="uin-input">UIN контакта:</label>
-                    <input type="number" id="uin-input" placeholder="Введите 10-значный UIN" min="1000000000" max="9999999999">
-                </div>
-                <p class="hint">💡 UIN - это уникальный 10-значный номер пользователя. Попросите друга поделиться его UIN.</p>
-                <p class="hint">📍 Ваш UIN: <span id="my-uin">---</span> (покажите другу)</p>
+<!-- Попап добавления контакта -->
+<div id="add-contact-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>👤 Добавить контакт</h3>
+            <button class="close-modal" onclick="hideModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="uin-input">UIN или имя пользователя:</label>
+                <input type="text" id="uin-input" placeholder="Введите 9-значный UIN или имя">
+                <p class="hint">💡 Можно ввести 9-значный UIN (например: 123456789) или часть имени пользователя</p>
+                <p class="hint">📍 Ваш UIN: <span id="my-uin">---</span> (покажите друзьям)</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" onclick="addContact()">Добавить контакт</button>
+                <button class="btn-primary" onclick="addContact()">Найти и добавить</button>
                 <button class="btn-secondary" onclick="hideModal()">Отмена</button>
                 <p id="add-contact-error" class="error"></p>
+                <p id="add-contact-message"></p>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Подключаем Supabase -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
