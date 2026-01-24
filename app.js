@@ -187,12 +187,6 @@ function showTab(tabName) {
     }
 }
 
-function validateEmail(email) {
-    // Простая проверка email
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
 async function login() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
@@ -235,8 +229,6 @@ async function login() {
     }
 }
 
-
-
 async function register() {
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
@@ -245,9 +237,14 @@ async function register() {
     
     errorElement.textContent = '';
     
-    // Простейшая валидация
+    // Валидация
     if (!email || !password) {
         errorElement.textContent = 'Заполните все поля';
+        return;
+    }
+    
+    if (!validateEmail(email)) {
+        errorElement.textContent = 'Введите корректный email';
         return;
     }
     
@@ -259,51 +256,96 @@ async function register() {
     try {
         showLoading('Регистрация...');
         
-        console.log('ПРОСТАЯ РЕГИСТРАЦИЯ: Пытаемся зарегистрировать:', email);
+        console.log('Пытаемся зарегистрировать:', email);
         
-        // САМАЯ ПРОСТАЯ РЕГИСТРАЦИЯ - без дополнительных опций
-        const { data, error } = await supabaseClient.auth.signUp({
+        // 1. Пробуем зарегистрироваться
+        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
             email,
-            password
+            password,
+            options: {
+                data: {
+                    display_name: displayName || email.split('@')[0]
+                }
+            }
         });
         
-        console.log('ПРОСТАЯ РЕГИСТРАЦИЯ: Результат:', { data, error });
+        console.log('Результат регистрации:', { signUpData, signUpError });
         
-        if (error) {
+        if (signUpError) {
             hideLoading();
-            errorElement.textContent = error.message;
-            console.error('Ошибка:', error);
-        } else if (data.user) {
-            // Если пользователь создан
-            currentUser = data.user;
+            console.error('Ошибка регистрации:', signUpError);
+            errorElement.textContent = signUpError.message;
             
-            // Пробуем создать профиль
-            try {
-                const uin = await createUserProfile(data.user.id, displayName || email.split('@')[0]);
-                console.log('Профиль создан с UIN:', uin);
+            // Если ошибка "user already registered", пробуем войти
+            if (signUpError.message.includes('already registered')) {
+                console.log('Пользователь уже существует, пробуем войти...');
+                errorElement.textContent = 'Пользователь уже существует, пытаюсь войти...';
                 
-                hideLoading();
-                showMainScreen();
-                showToast('✅ Регистрация успешна!');
-            } catch (profileError) {
-                console.error('Ошибка создания профиля:', profileError);
-                hideLoading();
-                errorElement.textContent = 'Пользователь создан, но профиль не создался. Попробуйте войти.';
+                const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (signInError) {
+                    errorElement.textContent = 'Ошибка входа: ' + signInError.message;
+                } else {
+                    currentUser = signInData.user;
+                    await loadUserProfile();
+                    showMainScreen();
+                    showToast('✅ Вход выполнен!');
+                }
             }
+            return;
+        }
+        
+        // 2. Если регистрация успешна, создаем профиль
+        if (signUpData.user) {
+            console.log('Регистрация успешна, создаем профиль...');
+            currentUser = signUpData.user;
+            
+            // Ждем немного, чтобы пользователь сохранился в базе
+            setTimeout(async () => {
+                const uin = await createUserProfile(signUpData.user.id, displayName || email.split('@')[0]);
+                
+                if (uin) {
+                    hideLoading();
+                    showMainScreen();
+                    showToast('✅ Регистрация успешна! Добро пожаловать!');
+                } else {
+                    hideLoading();
+                    errorElement.textContent = 'Профиль создан, но произошла ошибка. Попробуйте войти.';
+                    
+                    // Пробуем войти
+                    const { data: signInData } = await supabaseClient.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+                    
+                    if (signInData.user) {
+                        currentUser = signInData.user;
+                        showMainScreen();
+                    }
+                }
+            }, 2000); // Ждем 2 секунды
+        
         } else {
             hideLoading();
-            errorElement.textContent = '✅ Регистрация отправлена. Проверьте email.';
-            errorElement.style.color = 'green';
+            errorElement.textContent = '✅ Регистрация успешна! Проверьте email.';
+            setTimeout(() => showTab('login'), 3000);
         }
         
     } catch (error) {
         hideLoading();
-        console.error('Неожиданная ошибка:', error);
-        errorElement.textContent = 'Ошибка: ' + error.message;
+        console.error('Неожиданная ошибка при регистрации:', error);
+        errorElement.textContent = 'Произошла ошибка при регистрации: ' + error.message;
     }
 }
 
-
+function validateEmail(email) {
+    // Простая проверка email
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
 
 async function logout() {
     try {
@@ -388,8 +430,9 @@ async function createUserProfile(userId, displayName) {
     console.log('Создание профиля для пользователя:', userId);
     
     try {
-        // Генерируем уникальный UIN (10 цифр)
+        // Генерируем уникальный 9-значный UIN
         const uin = generateUIN();
+        console.log('Сгенерирован UIN:', uin);
         
         const { data, error } = await supabaseClient
             .from('profiles')
@@ -407,20 +450,32 @@ async function createUserProfile(userId, displayName) {
             // Если UIN уже существует, пробуем с другим
             if (error.code === '23505') {
                 console.log('UIN уже существует, генерируем новый...');
-                setTimeout(() => createUserProfile(userId, displayName), 100);
+                // Рекурсивно пытаемся снова с новым UIN
+                return await createUserProfile(userId, displayName);
             }
+            throw error;
         } else {
-            console.log('Профиль создан с UIN:', uin);
+            console.log('✅ Профиль создан с UIN:', uin);
+            
+            // Показываем UIN пользователю
+            setTimeout(() => {
+                showToast(`✅ Ваш UIN: ${uin}. Сохраните его для добавления в контакты!`);
+            }, 1000);
+            
             return uin;
         }
     } catch (error) {
         console.error('Неожиданная ошибка при создании профиля:', error);
+        throw error;
     }
 }
 
 function generateUIN() {
-    // Генерируем 10-значный UIN, начиная с 1
-    return Math.floor(1000000000 + Math.random() * 9000000000);
+    // Генерируем 9-значный UIN (от 100000000 до 999999999)
+    // Начинаем с 1, чтобы всегда было 9 цифр
+    const min = 100000000;
+    const max = 999999999;
+    return Math.floor(min + Math.random() * (max - min + 1));
 }
 
 async function trackOnlineStatus() {
@@ -511,6 +566,7 @@ function showAddContact() {
     document.getElementById('add-contact-modal').style.display = 'flex';
     document.getElementById('uin-input').value = '';
     document.getElementById('add-contact-error').textContent = '';
+    document.getElementById('add-contact-message').textContent = '';
     document.getElementById('uin-input').focus();
 }
 
@@ -518,37 +574,100 @@ function hideModal() {
     document.getElementById('add-contact-modal').style.display = 'none';
 }
 
+// НОВАЯ ФУНКЦИЯ: Поиск пользователей по имени или UIN
+async function searchUsers(query) {
+    if (!currentUser || !query || query.length < 2) return [];
+    
+    try {
+        // Ищем по имени (частичное совпадение)
+        const { data: byName, error: nameError } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .ilike('display_name', `%${query}%`)
+            .neq('id', currentUser.id)
+            .limit(10);
+        
+        if (nameError) throw nameError;
+        
+        // Ищем по UIN (точное или частичное совпадение)
+        let byUIN = [];
+        if (!isNaN(query) && query.length >= 3) {
+            const { data: uinData, error: uinError } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .ilike('uin::text', `%${query}%`)
+                .neq('id', currentUser.id)
+                .limit(10);
+            
+            if (!uinError) byUIN = uinData || [];
+        }
+        
+        // Объединяем результаты, убираем дубликаты
+        const allUsers = [...byName, ...byUIN];
+        const uniqueUsers = [];
+        const seenIds = new Set();
+        
+        for (const user of allUsers) {
+            if (!seenIds.has(user.id)) {
+                seenIds.add(user.id);
+                uniqueUsers.push(user);
+            }
+        }
+        
+        return uniqueUsers;
+    } catch (error) {
+        console.error('Ошибка поиска пользователей:', error);
+        return [];
+    }
+}
+
 async function addContact() {
     const uinInput = document.getElementById('uin-input').value.trim();
     const errorElement = document.getElementById('add-contact-error');
+    const messageElement = document.getElementById('add-contact-message');
     
     errorElement.textContent = '';
+    messageElement.textContent = '';
     
     if (!uinInput) {
-        errorElement.textContent = 'Введите UIN';
-        return;
-    }
-    
-    const uin = parseInt(uinInput);
-    if (isNaN(uin) || uin.toString().length !== 10) {
-        errorElement.textContent = 'UIN должен состоять из 10 цифр';
+        errorElement.textContent = 'Введите UIN или имя пользователя';
         return;
     }
     
     try {
         showLoading('Поиск пользователя...');
         
-        // Ищем пользователя по UIN
-        const { data: contactProfile, error: searchError } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('uin', uin)
-            .single();
+        let contactProfile = null;
+        
+        // Проверяем, является ли ввод числом (UIN)
+        if (!isNaN(uinInput) && uinInput.length === 9) {
+            // Поиск по точному UIN
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('uin', parseInt(uinInput))
+                .single();
+            
+            if (!error && data) {
+                contactProfile = data;
+            }
+        } else {
+            // Поиск по имени
+            const users = await searchUsers(uinInput);
+            if (users.length === 1) {
+                contactProfile = users[0];
+            } else if (users.length > 1) {
+                hideLoading();
+                // Показать список найденных пользователей
+                showUserList(users);
+                return;
+            }
+        }
         
         hideLoading();
         
-        if (searchError || !contactProfile) {
-            errorElement.textContent = 'Пользователь с таким UIN не найден';
+        if (!contactProfile) {
+            errorElement.textContent = 'Пользователь не найден';
             return;
         }
         
@@ -586,8 +705,8 @@ async function addContact() {
             console.error('Ошибка добавления контакта:', insertError);
             errorElement.textContent = 'Ошибка при добавлении контакта';
         } else {
-            errorElement.textContent = '✅ Запрос на добавление отправлен!';
-            errorElement.style.color = 'green';
+            messageElement.textContent = '✅ Запрос на добавление отправлен!';
+            messageElement.style.color = 'green';
             
             setTimeout(() => {
                 hideModal();
@@ -599,6 +718,102 @@ async function addContact() {
         hideLoading();
         console.error('Неожиданная ошибка при добавлении контакта:', error);
         errorElement.textContent = 'Произошла ошибка';
+    }
+}
+
+// НОВАЯ ФУНКЦИЯ: Показ списка найденных пользователей
+function showUserList(users) {
+    const modal = document.getElementById('add-contact-modal');
+    const modalBody = modal.querySelector('.modal-body');
+    const oldContent = modalBody.innerHTML;
+    
+    modalBody.innerHTML = `
+        <div class="user-list-container">
+            <h4>Найдено ${users.length} пользователей:</h4>
+            <div class="user-list">
+                ${users.map(user => `
+                    <div class="user-list-item" data-user-id="${user.id}">
+                        <div class="user-list-avatar">${user.display_name.charAt(0).toUpperCase()}</div>
+                        <div class="user-list-info">
+                            <div class="user-list-name">${user.display_name}</div>
+                            <div class="user-list-details">
+                                <span class="user-list-uin">UIN: ${user.uin}</span>
+                                <span class="user-list-status ${user.status}">${getStatusText(user.status)}</span>
+                            </div>
+                        </div>
+                        <button class="user-list-add-btn" onclick="addContactById('${user.id}')">+</button>
+                    </div>
+                `).join('')}
+            </div>
+            <button class="btn-secondary" onclick="showAddContactSearch()">← Назад к поиску</button>
+        </div>
+    `;
+    
+    // Сохраняем старый контент для кнопки "Назад"
+    modalBody.dataset.oldContent = oldContent;
+}
+
+// НОВАЯ ФУНКЦИЯ: Добавление контакта по ID
+async function addContactById(userId) {
+    try {
+        showLoading('Добавление контакта...');
+        
+        // Получаем информацию о пользователе
+        const { data: contactProfile, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        
+        if (error || !contactProfile) {
+            throw new Error('Пользователь не найден');
+        }
+        
+        // Проверяем, есть ли уже такой контакт
+        const { data: existingContact } = await supabaseClient
+            .from('contacts')
+            .select('*')
+            .or(`and(user_id.eq.${currentUser.id},contact_id.eq.${contactProfile.id}),and(user_id.eq.${contactProfile.id},contact_id.eq.${currentUser.id})`)
+            .single();
+        
+        if (existingContact) {
+            showToast('Этот пользователь уже у вас в контактах');
+            return;
+        }
+        
+        // Добавляем контакт
+        const { error: insertError } = await supabaseClient
+            .from('contacts')
+            .insert([{
+                user_id: currentUser.id,
+                contact_id: contactProfile.id,
+                status: 'pending'
+            }]);
+        
+        hideLoading();
+        
+        if (insertError) {
+            console.error('Ошибка добавления контакта:', insertError);
+            showToast('Ошибка при добавлении контакта', 'error');
+        } else {
+            hideModal();
+            loadContacts();
+            showToast(`✅ Запрос на добавление ${contactProfile.display_name} отправлен!`);
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка:', error);
+        showToast('Произошла ошибка', 'error');
+    }
+}
+
+// НОВАЯ ФУНКЦИЯ: Возврат к поиску
+function showAddContactSearch() {
+    const modalBody = document.querySelector('#add-contact-modal .modal-body');
+    if (modalBody.dataset.oldContent) {
+        modalBody.innerHTML = modalBody.dataset.oldContent;
+    } else {
+        showAddContact();
     }
 }
 
@@ -630,6 +845,7 @@ async function loadContacts() {
             contactsList.innerHTML = `
                 <div class="no-contacts">
                     <div>📇 Контактов пока нет</div>
+                    <p>Добавьте друзей по UIN или имени</p>
                     <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
                 </div>
             `;
@@ -1025,8 +1241,6 @@ async function installPWA() {
 
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
-
-
 function showLoading(message = 'Загрузка...') {
     // Удаляем старый индикатор, если есть
     const existingLoader = document.getElementById('global-loader');
@@ -1100,9 +1314,6 @@ async function testRegistration() {
         register();
     }, 500);
 }
-
-// Чтобы вызвать тест, введи в консоли браузера: testRegistration()
-// Открой консоль: F12 → вкладка Console
 
 // Обновление статуса каждые 30 секунд
 setInterval(async () => {
