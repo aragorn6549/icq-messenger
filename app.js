@@ -187,6 +187,12 @@ function showTab(tabName) {
     }
 }
 
+function validateEmail(email) {
+    // Простая проверка email
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
 async function login() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
@@ -229,6 +235,8 @@ async function login() {
     }
 }
 
+
+
 async function register() {
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
@@ -236,6 +244,7 @@ async function register() {
     const errorElement = document.getElementById('register-error');
     
     errorElement.textContent = '';
+    errorElement.style.color = ''; // Сбрасываем цвет
     
     // Валидация
     if (!email || !password) {
@@ -264,7 +273,8 @@ async function register() {
             password,
             options: {
                 data: {
-                    display_name: displayName || email.split('@')[0]
+                    display_name: displayName || email.split('@')[0],
+                    created_at: new Date().toISOString()
                 }
             }
         });
@@ -277,7 +287,7 @@ async function register() {
             errorElement.textContent = signUpError.message;
             
             // Если ошибка "user already registered", пробуем войти
-            if (signUpError.message.includes('already registered')) {
+            if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
                 console.log('Пользователь уже существует, пробуем войти...');
                 errorElement.textContent = 'Пользователь уже существует, пытаюсь войти...';
                 
@@ -298,39 +308,41 @@ async function register() {
             return;
         }
         
-        // 2. Если регистрация успешна, создаем профиль
+        // 2. Если регистрация успешна
         if (signUpData.user) {
             console.log('Регистрация успешна, создаем профиль...');
             currentUser = signUpData.user;
             
-            // Ждем немного, чтобы пользователь сохранился в базе
-            setTimeout(async () => {
-                const uin = await createUserProfile(signUpData.user.id, displayName || email.split('@')[0]);
+            // Сразу создаем профиль без задержки
+            const uin = await createUserProfile(signUpData.user.id, displayName || email.split('@')[0]);
+            
+            if (uin) {
+                hideLoading();
+                // Загружаем профиль и показываем главный экран
+                await loadUserProfile();
+                showMainScreen();
+                showToast('✅ Регистрация успешна! Добро пожаловать!');
+            } else {
+                hideLoading();
+                errorElement.textContent = 'Профиль создан, но произошла ошибка. Попробуйте войти.';
                 
-                if (uin) {
-                    hideLoading();
+                // Пробуем войти
+                const { data: signInData } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (signInData.user) {
+                    currentUser = signInData.user;
                     showMainScreen();
-                    showToast('✅ Регистрация успешна! Добро пожаловать!');
-                } else {
-                    hideLoading();
-                    errorElement.textContent = 'Профиль создан, но произошла ошибка. Попробуйте войти.';
-                    
-                    // Пробуем войти
-                    const { data: signInData } = await supabaseClient.auth.signInWithPassword({
-                        email,
-                        password
-                    });
-                    
-                    if (signInData.user) {
-                        currentUser = signInData.user;
-                        showMainScreen();
-                    }
                 }
-            }, 2000); // Ждем 2 секунды
+            }
         
         } else {
+            // Если нужна подтверждение email (хотя мы отключили)
             hideLoading();
             errorElement.textContent = '✅ Регистрация успешна! Проверьте email.';
+            errorElement.style.color = 'green';
             setTimeout(() => showTab('login'), 3000);
         }
         
@@ -1060,6 +1072,8 @@ async function installPWA() {
 }
 
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+
+
 
 function showLoading(message = 'Загрузка...') {
     // Удаляем старый индикатор, если есть
