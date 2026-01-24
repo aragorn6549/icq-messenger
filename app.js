@@ -239,7 +239,7 @@ async function register() {
     
     // Валидация
     if (!email || !password) {
-        errorElement.textContent = 'Заполните обязательные поля';
+        errorElement.textContent = 'Заполните все поля';
         return;
     }
     
@@ -256,62 +256,89 @@ async function register() {
     try {
         showLoading('Регистрация...');
         
-        const { data, error } = await supabaseClient.auth.signUp({
+        console.log('Пытаемся зарегистрировать:', email);
+        
+        // 1. Пробуем зарегистрироваться
+        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
             email,
             password,
             options: {
                 data: {
-                    display_name: displayName || email.split('@')[0],
-                    created_at: new Date().toISOString()
+                    display_name: displayName || email.split('@')[0]
                 }
             }
         });
         
-        hideLoading();
+        console.log('Результат регистрации:', { signUpData, signUpError });
         
-        if (error) {
-            console.error('Ошибка регистрации:', error);
-            errorElement.textContent = error.message;
-        } else {
-            console.log('Регистрация успешна:', data.user.email);
+        if (signUpError) {
+            hideLoading();
+            console.error('Ошибка регистрации:', signUpError);
+            errorElement.textContent = signUpError.message;
             
-            if (data.user) {
-                // Создаем профиль пользователя
-                await createUserProfile(data.user.id, displayName || email.split('@')[0]);
+            // Если ошибка "user already registered", пробуем войти
+            if (signUpError.message.includes('already registered')) {
+                console.log('Пользователь уже существует, пробуем войти...');
+                errorElement.textContent = 'Пользователь уже существует, пытаюсь войти...';
                 
-                errorElement.textContent = '✅ Регистрация успешна!';
-                errorElement.style.color = 'green';
+                const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
                 
-                // Автоматически входим после регистрации
-                setTimeout(async () => {
-                    const { data: loginData } = await supabaseClient.auth.signInWithPassword({
+                if (signInError) {
+                    errorElement.textContent = 'Ошибка входа: ' + signInError.message;
+                } else {
+                    currentUser = signInData.user;
+                    await loadUserProfile();
+                    showMainScreen();
+                    showToast('✅ Вход выполнен!');
+                }
+            }
+            return;
+        }
+        
+        // 2. Если регистрация успешна, создаем профиль
+        if (signUpData.user) {
+            console.log('Регистрация успешна, создаем профиль...');
+            currentUser = signUpData.user;
+            
+            // Ждем немного, чтобы пользователь сохранился в базе
+            setTimeout(async () => {
+                const uin = await createUserProfile(signUpData.user.id, displayName || email.split('@')[0]);
+                
+                if (uin) {
+                    hideLoading();
+                    showMainScreen();
+                    showToast('✅ Регистрация успешна! Добро пожаловать!');
+                } else {
+                    hideLoading();
+                    errorElement.textContent = 'Профиль создан, но произошла ошибка. Попробуйте войти.';
+                    
+                    // Пробуем войти
+                    const { data: signInData } = await supabaseClient.auth.signInWithPassword({
                         email,
                         password
                     });
                     
-                    if (loginData.user) {
-                        currentUser = loginData.user;
-                        await loadUserProfile();
+                    if (signInData.user) {
+                        currentUser = signInData.user;
                         showMainScreen();
-                        showToast('✅ Добро пожаловать!');
                     }
-                }, 1500);
-            } else {
-                errorElement.textContent = '✅ Регистрация успешна! Проверьте email для подтверждения.';
-                errorElement.style.color = 'green';
-                setTimeout(() => showTab('login'), 3000);
-            }
+                }
+            }, 2000); // Ждем 2 секунды
+        
+        } else {
+            hideLoading();
+            errorElement.textContent = '✅ Регистрация успешна! Проверьте email.';
+            setTimeout(() => showTab('login'), 3000);
         }
+        
     } catch (error) {
         hideLoading();
         console.error('Неожиданная ошибка при регистрации:', error);
-        errorElement.textContent = 'Произошла ошибка при регистрации';
+        errorElement.textContent = 'Произошла ошибка при регистрации: ' + error.message;
     }
-}
-
-function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
 }
 
 async function logout() {
@@ -1085,6 +1112,31 @@ function showToast(message, type = 'info') {
         }, 300);
     }, 3000);
 }
+
+// Функция для быстрого тестирования
+async function testRegistration() {
+    console.log('Тестируем регистрацию...');
+    
+    // Тестовые данные
+    const testEmail = `test${Date.now()}@test.com`;
+    const testPassword = '123456';
+    
+    // Заполняем форму
+    document.getElementById('reg-email').value = testEmail;
+    document.getElementById('reg-password').value = testPassword;
+    document.getElementById('reg-display-name').value = 'Тестовый пользователь';
+    
+    // Переключаемся на регистрацию
+    showTab('register');
+    
+    // Ждем и регистрируем
+    setTimeout(() => {
+        register();
+    }, 500);
+}
+
+// Чтобы вызвать тест, введи в консоли браузера: testRegistration()
+// Открой консоль: F12 → вкладка Console
 
 // Обновление статуса каждые 30 секунд
 setInterval(async () => {
