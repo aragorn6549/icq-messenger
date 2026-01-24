@@ -244,16 +244,10 @@ async function register() {
     const errorElement = document.getElementById('register-error');
     
     errorElement.textContent = '';
-    errorElement.style.color = ''; // Сбрасываем цвет
     
-    // Валидация
+    // Простейшая валидация
     if (!email || !password) {
         errorElement.textContent = 'Заполните все поля';
-        return;
-    }
-    
-    if (!validateEmail(email)) {
-        errorElement.textContent = 'Введите корректный email';
         return;
     }
     
@@ -265,93 +259,51 @@ async function register() {
     try {
         showLoading('Регистрация...');
         
-        console.log('Пытаемся зарегистрировать:', email);
+        console.log('ПРОСТАЯ РЕГИСТРАЦИЯ: Пытаемся зарегистрировать:', email);
         
-        // 1. Пробуем зарегистрироваться
-        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+        // САМАЯ ПРОСТАЯ РЕГИСТРАЦИЯ - без дополнительных опций
+        const { data, error } = await supabaseClient.auth.signUp({
             email,
-            password,
-            options: {
-                data: {
-                    display_name: displayName || email.split('@')[0],
-                    created_at: new Date().toISOString()
-                }
-            }
+            password
         });
         
-        console.log('Результат регистрации:', { signUpData, signUpError });
+        console.log('ПРОСТАЯ РЕГИСТРАЦИЯ: Результат:', { data, error });
         
-        if (signUpError) {
+        if (error) {
             hideLoading();
-            console.error('Ошибка регистрации:', signUpError);
-            errorElement.textContent = signUpError.message;
+            errorElement.textContent = error.message;
+            console.error('Ошибка:', error);
+        } else if (data.user) {
+            // Если пользователь создан
+            currentUser = data.user;
             
-            // Если ошибка "user already registered", пробуем войти
-            if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
-                console.log('Пользователь уже существует, пробуем войти...');
-                errorElement.textContent = 'Пользователь уже существует, пытаюсь войти...';
+            // Пробуем создать профиль
+            try {
+                const uin = await createUserProfile(data.user.id, displayName || email.split('@')[0]);
+                console.log('Профиль создан с UIN:', uin);
                 
-                const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-                    email,
-                    password
-                });
-                
-                if (signInError) {
-                    errorElement.textContent = 'Ошибка входа: ' + signInError.message;
-                } else {
-                    currentUser = signInData.user;
-                    await loadUserProfile();
-                    showMainScreen();
-                    showToast('✅ Вход выполнен!');
-                }
-            }
-            return;
-        }
-        
-        // 2. Если регистрация успешна
-        if (signUpData.user) {
-            console.log('Регистрация успешна, создаем профиль...');
-            currentUser = signUpData.user;
-            
-            // Сразу создаем профиль без задержки
-            const uin = await createUserProfile(signUpData.user.id, displayName || email.split('@')[0]);
-            
-            if (uin) {
                 hideLoading();
-                // Загружаем профиль и показываем главный экран
-                await loadUserProfile();
                 showMainScreen();
-                showToast('✅ Регистрация успешна! Добро пожаловать!');
-            } else {
+                showToast('✅ Регистрация успешна!');
+            } catch (profileError) {
+                console.error('Ошибка создания профиля:', profileError);
                 hideLoading();
-                errorElement.textContent = 'Профиль создан, но произошла ошибка. Попробуйте войти.';
-                
-                // Пробуем войти
-                const { data: signInData } = await supabaseClient.auth.signInWithPassword({
-                    email,
-                    password
-                });
-                
-                if (signInData.user) {
-                    currentUser = signInData.user;
-                    showMainScreen();
-                }
+                errorElement.textContent = 'Пользователь создан, но профиль не создался. Попробуйте войти.';
             }
-        
         } else {
-            // Если нужна подтверждение email (хотя мы отключили)
             hideLoading();
-            errorElement.textContent = '✅ Регистрация успешна! Проверьте email.';
+            errorElement.textContent = '✅ Регистрация отправлена. Проверьте email.';
             errorElement.style.color = 'green';
-            setTimeout(() => showTab('login'), 3000);
         }
         
     } catch (error) {
         hideLoading();
-        console.error('Неожиданная ошибка при регистрации:', error);
-        errorElement.textContent = 'Произошла ошибка при регистрации: ' + error.message;
+        console.error('Неожиданная ошибка:', error);
+        errorElement.textContent = 'Ошибка: ' + error.message;
     }
 }
+
+
 
 async function logout() {
     try {
