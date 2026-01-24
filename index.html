@@ -3,88 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="ICQ Messenger - современный веб-мессенджер в стиле ICQ">
     <title>ICQ Messenger PWA</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <!-- Иконка приложения -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+    <!-- Иконки для PWA -->
+    <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/000000/speech-bubble.png">
 </head>
 <body>
     <div class="container">
         <!-- Шапка -->
         <header class="header">
-            <h1>💬 ICQ Messenger</h1>
+            <div class="header-left">
+                <h1>💬 ICQ Messenger</h1>
+                <button id="install-btn" class="install-btn" style="display:none;">📱 Установить</button>
+            </div>
             <div id="user-info" style="display: none;">
-                <span id="user-uin"></span>
-                <span id="user-status" class="status-offline"></span>
-                <button id="logout-btn">Выйти</button>
+                <div class="user-info-left">
+                    <span id="user-uin" class="user-uin">UIN: ---</span>
+                    <span id="user-email" class="user-email"></span>
+                    <span id="user-status" class="user-status status-offline"></span>
+                </div>
+                <div class="user-info-right">
+                    <select id="status-select" class="status-select" onchange="changeStatus(this.value)">
+                        <option value="online">🟢 Онлайн</option>
+                        <option value="away">🟡 Отошёл</option>
+                        <option value="dnd">🔴 Не беспокоить</option>
+                        <option value="invisible">⚫ Невидимка</option>
+                        <option value="offline">⚪ Оффлайн</option>
+                    </select>
+                    <button id="logout-btn" class="logout-btn">Выйти</button>
+                </div>
             </div>
         </header>
 
         <!-- Экран авторизации -->
         <div id="auth-screen" class="screen">
-            <h2>Добро пожаловать!</h2>
-            <div class="tabs">
-              <button class="tab active" onclick="showTab('login')">Вход</button>
-              <button class="tab" onclick="showTab('register')">Регистрация</button>
-            </div>
-            
-            <!-- Форма входа -->
-            <div id="login-form" class="form">
-                <input type="email" id="login-email" placeholder="Email" required>
-                <input type="password" id="login-password" placeholder="Пароль" required>
-                <button onclick="login()">Войти</button>
-                <p id="login-error" class="error"></p>
-            </div>
-            
-            <!-- Форма регистрации -->
-            <div id="register-form" class="form" style="display: none;">
-                <input type="email" id="reg-email" placeholder="Email" required>
-                <input type="password" id="reg-password" placeholder="Пароль (минимум 6 символов)" required>
-                <input type="text" id="reg-display-name" placeholder="Ваше имя (необязательно)">
-                <button onclick="register()">Зарегистрироваться</button>
-                <p id="register-error" class="error"></p>
+            <div class="auth-container">
+                <h2>💬 Добро пожаловать!</h2>
+                <p class="auth-subtitle">ICQ Messenger - общайтесь бесплатно и без ограничений</p>
+                
+                <div class="tabs">
+                    <button class="tab active" id="login-tab">Вход</button>
+                    <button class="tab" id="register-tab">Регистрация</button>
+                </div>
+                
+                <!-- Форма входа -->
+                <div id="login-form" class="form">
+                    <div class="form-group">
+                        <input type="email" id="login-email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="login-password" placeholder="Пароль" required>
+                    </div>
+                    <button class="auth-btn" onclick="login()">Войти</button>
+                    <p id="login-error" class="error"></p>
+                </div>
+                
+                <!-- Форма регистрации -->
+                <div id="register-form" class="form" style="display: none;">
+                    <div class="form-group">
+                        <input type="email" id="reg-email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="reg-password" placeholder="Пароль (минимум 6 символов)" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="reg-display-name" placeholder="Ваше имя (необязательно)">
+                    </div>
+                    <button class="auth-btn" onclick="register()">Зарегистрироваться</button>
+                    <p id="register-error" class="error"></p>
+                </div>
+                
+                <div class="auth-features">
+                    <div class="feature">
+                        <span>🔒</span> Безопасное соединение
+                    </div>
+                    <div class="feature">
+                        <span>⚡</span> Быстрые сообщения
+                    </div>
+                    <div class="feature">
+                        <span>📱</span> Установка как приложение
+                    </div>
+                </div>
             </div>
         </div>
-
+        
         <!-- Главный экран (будет скрыт до входа) -->
         <div id="main-screen" class="screen" style="display: none;">
             <!-- Боковая панель с контактами -->
             <div class="sidebar">
                 <div class="sidebar-header">
-                    <h3>Контакты</h3>
-                    <button onclick="showAddContact()">+ Добавить</button>
+                    <h3>📇 Контакты</h3>
+                    <button class="add-contact-btn" onclick="showAddContact()">
+                        <span>+</span> Добавить
+                    </button>
+                </div>
+                <div class="contacts-search">
+                    <input type="text" id="contacts-search" placeholder="Поиск контактов..." onkeyup="searchContacts()">
                 </div>
                 <div id="contacts-list" class="contacts-list">
                     <!-- Контакты будут здесь -->
+                    <div class="no-contacts">
+                        <div>👋 Начните общение!</div>
+                        <p>Добавьте контакты по UIN, чтобы начать переписку</p>
+                        <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
+                    </div>
                 </div>
             </div>
             
             <!-- Область чата -->
             <div class="chat-area">
                 <div id="chat-header" class="chat-header">
-                    <h3>Выберите контакт</h3>
+                    <div class="no-chat-selected">
+                        <h3>💬 Добро пожаловать!</h3>
+                        <p>Выберите контакт слева, чтобы начать общение</p>
+                    </div>
                 </div>
                 <div id="messages-container" class="messages-container">
                     <!-- Сообщения будут здесь -->
+                    <div class="welcome-message">
+                        <div class="welcome-icon">💬</div>
+                        <h3>ICQ Messenger</h3>
+                        <p>Выберите контакт из списка слева, чтобы начать переписку</p>
+                        <div class="tips">
+                            <div class="tip">💡 <strong>Совет:</strong> Вы можете добавлять контакты по их UIN</div>
+                            <div class="tip">📱 <strong>Совет:</strong> Установите приложение для удобного доступа</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="message-input">
+                <div class="message-input-container">
                     <input type="text" id="message-input" placeholder="Введите сообщение..." disabled>
-                    <button id="send-btn" disabled>Отправить</button>
+                    <button id="send-btn" class="send-btn" disabled>Отправить</button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Попап добавления контакта -->
-        <div id="add-contact-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h3>Добавить контакт</h3>
-                <input type="number" id="uin-input" placeholder="Введите UIN друга">
-                <p class="hint">UIN - это уникальный номер пользователя</p>
-                <div class="modal-buttons">
-                    <button onclick="addContact()">Добавить</button>
-                    <button onclick="hideModal()">Отмена</button>
+    <!-- Попап добавления контакта -->
+    <div id="add-contact-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👤 Добавить контакт</h3>
+                <button class="close-modal" onclick="hideModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="uin-input">UIN контакта:</label>
+                    <input type="number" id="uin-input" placeholder="Введите 10-значный UIN" min="1000000000" max="9999999999">
                 </div>
+                <p class="hint">💡 UIN - это уникальный 10-значный номер пользователя. Попросите друга поделиться его UIN.</p>
+                <p class="hint">📍 Ваш UIN: <span id="my-uin">---</span> (покажите другу)</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="addContact()">Добавить контакт</button>
+                <button class="btn-secondary" onclick="hideModal()">Отмена</button>
                 <p id="add-contact-error" class="error"></p>
             </div>
         </div>
@@ -94,5 +169,36 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <!-- Наш JavaScript -->
     <script src="app.js"></script>
+    
+    <script>
+        // Функция поиска контактов
+        function searchContacts() {
+            const searchTerm = document.getElementById('contacts-search').value.toLowerCase();
+            const contacts = document.querySelectorAll('.contact-item');
+            
+            contacts.forEach(contact => {
+                const contactName = contact.querySelector('.contact-name').textContent.toLowerCase();
+                const contactUin = contact.querySelector('.contact-uin').textContent.toLowerCase();
+                
+                if (contactName.includes(searchTerm) || contactUin.includes(searchTerm)) {
+                    contact.style.display = 'flex';
+                } else {
+                    contact.style.display = 'none';
+                }
+            });
+        }
+        
+        // Показываем UIN пользователя в модальном окне
+        document.addEventListener('DOMContentLoaded', () => {
+            // Этот код обновится после загрузки профиля
+            setTimeout(() => {
+                const uinElement = document.getElementById('user-uin');
+                if (uinElement) {
+                    const myUin = document.getElementById('my-uin');
+                    myUin.textContent = uinElement.textContent.replace('UIN: ', '');
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

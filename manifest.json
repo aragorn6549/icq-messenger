@@ -4,26 +4,102 @@
   "description": "Мессенджер в стиле ICQ как Progressive Web App",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "#f8fafc",
   "theme_color": "#667eea",
+  "orientation": "portrait-primary",
+  "categories": ["social", "communication", "productivity"],
+  "lang": "ru",
+  "dir": "ltr",
+  "scope": "/",
+  "id": "/",
+  
   "icons": [
+    {
+      "src": "https://img.icons8.com/color/96/000000/speech-bubble.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "https://img.icons8.com/color/192/000000/speech-bubble.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "https://img.icons8.com/color/512/000000/speech-bubble.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["social", "communication"],
+  
+  "screenshots": [
+    {
+      "src": "https://via.placeholder.com/540x720/667eea/ffffff?text=ICQ+Messenger",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Главный экран мессенджера"
+    },
+    {
+      "src": "https://via.placeholder.com/720x540/667eea/ffffff?text=ICQ+Messenger+Chat",
+      "sizes": "720x540",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Чат в мессенджере"
+    }
+  ],
+  
   "shortcuts": [
     {
       "name": "Новое сообщение",
-      "url": "/new",
-      "description": "Написать новое сообщение"
+      "short_name": "Новое",
+      "description": "Написать новое сообщение",
+      "url": "/?new=true",
+      "icons": [
+        {
+          "src": "https://img.icons8.com/color/96/000000/new-message.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Мои контакты",
+      "short_name": "Контакты",
+      "description": "Посмотреть список контактов",
+      "url": "/?contacts=true",
+      "icons": [
+        {
+          "src": "https://img.icons8.com/color/96/000000/contacts.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
     }
-  ]
+  ],
+  
+  "protocol_handlers": [
+    {
+      "protocol": "web+icq",
+      "url": "/?uin=%s"
+    }
+  ],
+  
+  "related_applications": [],
+  
+  "prefer_related_applications": false,
+  
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
