@@ -823,6 +823,7 @@ async function loadContacts() {
     console.log('Загрузка контактов...');
     
     try {
+        // Загружаем ВСЕ контакты - и принятые, и запросы
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
@@ -830,8 +831,7 @@ async function loadContacts() {
                 contact:contact_id (*),
                 user:user_id (*)
             `)
-            .or(`user_id.eq.${currentUser.id},contact_id.eq.${currentUser.id}`)
-            .eq('status', 'accepted');
+            .or(`user_id.eq.${currentUser.id},contact_id.eq.${currentUser.id}`);
         
         if (error) {
             console.error('Ошибка загрузки контактов:', error);
@@ -852,55 +852,120 @@ async function loadContacts() {
             return;
         }
         
-        // Сортируем контакты по статусу (онлайн первые) и по имени
-        contacts.sort((a, b) => {
-            const userA = a.user_id === currentUser.id ? a.contact : a.user;
-            const userB = b.user_id === currentUser.id ? b.contact : b.user;
-            
-            // Сначала онлайн пользователи
-            if (userA.status === 'online' && userB.status !== 'online') return -1;
-            if (userA.status !== 'online' && userB.status === 'online') return 1;
-            
-            // Затем по алфавиту
-            return userA.display_name.localeCompare(userB.display_name);
-        });
+        // Разделяем контакты на три группы
+        const acceptedContacts = [];   // Друзья
+        const incomingRequests = [];   // Тебя добавляют
+        const outgoingRequests = [];   // Ты добавил
         
         contacts.forEach(contact => {
-            const otherUser = contact.user_id === currentUser.id 
-                ? contact.contact 
-                : contact.user;
+            const isIncoming = contact.contact_id === currentUser.id;
+            const otherUser = isIncoming ? contact.user : contact.contact;
             
-            const contactElement = document.createElement('div');
-            contactElement.className = 'contact-item';
-            contactElement.dataset.userId = otherUser.id;
+            if (contact.status === 'accepted') {
+                acceptedContacts.push({ contact, otherUser });
+            } else if (isIncoming) {
+                incomingRequests.push({ contact, otherUser });
+            } else {
+                outgoingRequests.push({ contact, otherUser });
+            }
+        });
+        
+        // 1. Показываем входящие запросы
+        if (incomingRequests.length > 0) {
+            const requestsHeader = document.createElement('div');
+            requestsHeader.className = 'requests-header';
+            requestsHeader.innerHTML = `<h4>📥 Запросы на добавление (${incomingRequests.length})</h4>`;
+            contactsList.appendChild(requestsHeader);
             
-            // Получаем последнее сообщение для этого контакта
-            getLastMessage(otherUser.id).then(lastMessage => {
-                contactElement.innerHTML = `
-                    <div class="contact-avatar">${otherUser.display_name.charAt(0).toUpperCase()}</div>
-                    <div class="contact-info">
-                        <div class="contact-name">${otherUser.display_name}</div>
-                        <div class="contact-details">
-                            <span class="contact-uin">UIN: ${otherUser.uin}</span>
-                            <span class="contact-status ${otherUser.status}">${getStatusText(otherUser.status)}</span>
+            incomingRequests.forEach(item => {
+                const requestElement = document.createElement('div');
+                requestElement.className = 'contact-request';
+                requestElement.dataset.contactId = item.contact.id;
+                
+                requestElement.innerHTML = `
+                    <div class="request-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
+                    <div class="request-info">
+                        <div class="request-name">${item.otherUser.display_name}</div>
+                        <div class="request-details">
+                            <span class="request-uin">UIN: ${item.otherUser.uin}</span>
+                            <span class="request-status">Хочет добавить вас в друзья</span>
                         </div>
-                        ${lastMessage ? `<div class="last-message">${lastMessage.content.substring(0, 30)}${lastMessage.content.length > 30 ? '...' : ''}</div>` : ''}
+                    </div>
+                    <div class="request-buttons">
+                        <button class="btn-accept" onclick="acceptContactRequest('${item.contact.id}', '${item.otherUser.id}')">✓ Принять</button>
+                        <button class="btn-reject" onclick="rejectContactRequest('${item.contact.id}')">✗ Отклонить</button>
                     </div>
                 `;
-            });
-            
-            contactElement.addEventListener('click', () => {
-                selectContact(otherUser);
                 
-                // Добавляем активный класс
-                document.querySelectorAll('.contact-item').forEach(item => {
-                    item.classList.remove('active');
-                });
-                contactElement.classList.add('active');
+                contactsList.appendChild(requestElement);
             });
+        }
+        
+        // 2. Показываем принятых друзей
+        if (acceptedContacts.length > 0) {
+            const friendsHeader = document.createElement('div');
+            friendsHeader.className = 'contacts-header';
+            friendsHeader.innerHTML = `<h4>✅ Мои друзья (${acceptedContacts.length})</h4>`;
+            contactsList.appendChild(friendsHeader);
             
-            contactsList.appendChild(contactElement);
-        });
+            acceptedContacts.forEach(item => {
+                const contactElement = document.createElement('div');
+                contactElement.className = 'contact-item';
+                contactElement.dataset.userId = item.otherUser.id;
+                
+                // Получаем последнее сообщение
+                getLastMessage(item.otherUser.id).then(lastMessage => {
+                    contactElement.innerHTML = `
+                        <div class="contact-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
+                        <div class="contact-info">
+                            <div class="contact-name">${item.otherUser.display_name}</div>
+                            <div class="contact-details">
+                                <span class="contact-uin">UIN: ${item.otherUser.uin}</span>
+                                <span class="contact-status ${item.otherUser.status}">${getStatusText(item.otherUser.status)}</span>
+                            </div>
+                            ${lastMessage ? `<div class="last-message">${lastMessage.content.substring(0, 30)}${lastMessage.content.length > 30 ? '...' : ''}</div>` : ''}
+                        </div>
+                    `;
+                });
+                
+                contactElement.addEventListener('click', () => {
+                    selectContact(item.otherUser);
+                    document.querySelectorAll('.contact-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    contactElement.classList.add('active');
+                });
+                
+                contactsList.appendChild(contactElement);
+            });
+        }
+        
+        // 3. Показываем отправленные запросы
+        if (outgoingRequests.length > 0) {
+            const outgoingHeader = document.createElement('div');
+            outgoingHeader.className = 'contacts-header';
+            outgoingHeader.innerHTML = `<h4>📤 Ожидание ответа (${outgoingRequests.length})</h4>`;
+            contactsList.appendChild(outgoingHeader);
+            
+            outgoingRequests.forEach(item => {
+                const requestElement = document.createElement('div');
+                requestElement.className = 'contact-request outgoing';
+                
+                requestElement.innerHTML = `
+                    <div class="request-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
+                    <div class="request-info">
+                        <div class="request-name">${item.otherUser.display_name}</div>
+                        <div class="request-details">
+                            <span class="request-uin">UIN: ${item.otherUser.uin}</span>
+                            <span class="request-status">Ожидает подтверждения...</span>
+                        </div>
+                    </div>
+                `;
+                
+                contactsList.appendChild(requestElement);
+            });
+        }
+        
     } catch (error) {
         console.error('Неожиданная ошибка при загрузке контактов:', error);
     }
@@ -933,6 +998,104 @@ function getStatusText(status) {
         'offline': '⚪ Оффлайн'
     };
     return statusMap[status] || '⚪ Оффлайн';
+}
+
+// Функция принятия запроса на дружбу
+async function acceptContactRequest(contactId, otherUserId) {
+    try {
+        showLoading('Принятие запроса...');
+        
+        // 1. Обновляем статус запроса на 'accepted'
+        const { error: updateError } = await supabaseClient
+            .from('contacts')
+            .update({ status: 'accepted' })
+            .eq('id', contactId);
+        
+        if (updateError) throw updateError;
+        
+        // 2. Создаём обратную запись (чтобы друг тоже видел тебя)
+        const { error: insertError } = await supabaseClient
+            .from('contacts')
+            .insert([{
+                user_id: currentUser.id,
+                contact_id: otherUserId,
+                status: 'accepted'
+            }])
+            .select()
+            .single();
+        
+        // Если ошибка "уже существует" - игнорируем
+        if (insertError && !insertError.message.includes('duplicate key')) {
+            console.error('Ошибка создания обратной записи:', insertError);
+        }
+        
+        hideLoading();
+        
+        // 3. Обновляем список контактов
+        loadContacts();
+        showToast('✅ Запрос принят! Теперь вы друзья!');
+        
+        // 4. Отправляем уведомление другу
+        await sendContactAcceptedNotification(otherUserId);
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка принятия запроса:', error);
+        showToast('Ошибка при принятии запроса', 'error');
+    }
+}
+
+// Функция отправки уведомления о принятии запроса
+async function sendContactAcceptedNotification(otherUserId) {
+    try {
+        // Получаем информацию о друге
+        const { data: friendProfile } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', otherUserId)
+            .single();
+        
+        if (!friendProfile) return;
+        
+        // Отправляем системное сообщение
+        const { error } = await supabaseClient
+            .from('messages')
+            .insert([{
+                sender_id: currentUser.id,
+                receiver_id: otherUserId,
+                content: `✅ ${currentUser.email} принял(а) ваш запрос на добавление в друзья! Теперь вы можете общаться.`
+            }]);
+        
+        if (error) console.error('Ошибка отправки уведомления:', error);
+        
+    } catch (error) {
+        console.error('Ошибка:', error);
+    }
+}
+
+// Функция отклонения запроса
+async function rejectContactRequest(contactId) {
+    try {
+        showLoading('Отклонение запроса...');
+        
+        const { error } = await supabaseClient
+            .from('contacts')
+            .delete()
+            .eq('id', contactId);
+        
+        hideLoading();
+        
+        if (error) {
+            console.error('Ошибка отклонения запроса:', error);
+            showToast('Ошибка при отклонении запроса', 'error');
+        } else {
+            loadContacts();
+            showToast('Запрос отклонен');
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка:', error);
+    }
 }
 
 // ==================== СООБЩЕНИЯ ====================
