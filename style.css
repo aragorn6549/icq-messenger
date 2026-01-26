@@ -1566,3 +1566,72 @@ body {
     50% { opacity: 1; }
     100% { opacity: 0.7; }
 }
+
+/* Стили для управления видимостью контактов и чата */
+@media (min-width: 769px) {
+    /* На десктопе: скрываем контакты когда открыт чат */
+    .sidebar.hidden {
+        transform: translateX(-100%);
+        width: 0;
+        opacity: 0;
+        border-right: none;
+    }
+    
+    .chat-area.expanded {
+        width: 100%;
+        margin-left: 0;
+    }
+    
+    .back-to-contacts {
+        display: none; /* На десктопе не показываем кнопку "назад" */
+    }
+}
+
+@media (max-width: 768px) {
+    /* На мобильных: всегда скрываем контакты при открытии чата */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        background: var(--card-bg);
+    }
+    
+    .sidebar.show {
+        left: 0;
+    }
+    
+    .back-to-contacts {
+        display: block;
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--text-color);
+        cursor: pointer;
+        padding: 8px;
+        margin-right: 10px;
+    }
+}
+
+/* Общие стили для блока контакта в чате */
+.chat-header-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.chat-contact-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-grow: 1;
+}
+
+/* Анимация для плавного перехода */
+.sidebar, .chat-area {
+    transition: all 0.3s ease;
+}
