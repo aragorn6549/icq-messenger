@@ -33,6 +33,30 @@ self.addEventListener('install', event => {
     );
 });
 
+self.addEventListener('message', event => {
+    console.log(`${APP_NAME}: Получено сообщение от клиента:`, event.data);
+    
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
+// Фоновая синхронизация при восстановлении соединения
+self.addEventListener('sync', event => {
+    console.log(`${APP_NAME}: Синхронизация: ${event.tag}`);
+    
+    if (event.tag === 'send-messages') {
+        event.waitUntil(sendPendingMessages());
+    }
+});
+
+async function sendPendingMessages() {
+    console.log(`${APP_NAME}: Отправка отложенных сообщений`);
+    
+    // Здесь можно реализовать отправку сообщений, которые не удалось отправить
+    // Например, сохраняя их в IndexedDB при потере соединения
+}
+
 // Активация Service Worker
 self.addEventListener('activate', event => {
     console.log(`${APP_NAME}: Service Worker активирован`);
