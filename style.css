@@ -1322,3 +1322,133 @@ body {
         gap: 4px;
     }
 }
+
+/* Стили для системы запросов */
+.requests-header {
+    margin: 15px 0 10px 0;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border-radius: 10px;
+    border: 1px solid #bae6fd;
+}
+
+.requests-header h4 {
+    margin: 0;
+    color: #0369a1;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.contacts-header {
+    margin: 20px 0 10px 0;
+    padding: 10px 15px;
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.contacts-header h4 {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.contact-request {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    margin: 10px 0;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.contact-request:hover {
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.contact-request.outgoing {
+    opacity: 0.7;
+    background: #f8fafc;
+}
+
+.request-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 20px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.request-info {
+    flex: 1;
+}
+
+.request-name {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 5px;
+}
+
+.request-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.request-uin {
+    font-size: 12px;
+    color: #64748b;
+    font-family: monospace;
+}
+
+.request-status {
+    font-size: 13px;
+    color: #475569;
+}
+
+.request-buttons {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.btn-accept, .btn-reject {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.btn-accept {
+    background: #10b981;
+    color: white;
+}
+
+.btn-accept:hover {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-reject {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.btn-reject:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+}
