@@ -227,6 +227,136 @@ document.addEventListener('DOMContentLoaded', () => {
     initNetworkStatus();
 });
 
+// ==================== УПРАВЛЕНИЕ ВИДИМОСТЬЮ КОНТАКТОВ И ЧАТА ====================
+
+function showChatOnly() {
+    const sidebar = document.querySelector('.sidebar');
+    const chatArea = document.querySelector('.chat-area');
+    const backButton = document.getElementById('back-to-contacts');
+    
+    // На мобильных: скрываем меню
+    if (window.innerWidth <= 768) {
+        hideMobileMenu();
+    } else {
+        // На десктопе: скрываем контакты, расширяем чат
+        sidebar.classList.add('hidden');
+        chatArea.classList.add('expanded');
+    }
+    
+    // Показываем кнопку "Назад" только на мобильных
+    if (backButton) {
+        backButton.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    }
+}
+
+function showContactsOnly() {
+    const sidebar = document.querySelector('.sidebar');
+    const chatArea = document.querySelector('.chat-area');
+    const backButton = document.getElementById('back-to-contacts');
+    
+    // На мобильных: показываем меню
+    if (window.innerWidth <= 768) {
+        showMobileMenu();
+    } else {
+        // На десктопе: показываем контакты, уменьшаем чат
+        sidebar.classList.remove('hidden');
+        chatArea.classList.remove('expanded');
+    }
+    
+    // Скрываем кнопку "Назад"
+    if (backButton) {
+        backButton.style.display = 'none';
+    }
+}
+
+function initBackToContactsButton() {
+    const backButton = document.getElementById('back-to-contacts');
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            showContactsOnly();
+            
+            // Сбрасываем выбранный контакт
+            selectedContact = null;
+            
+            // Скрываем поле ввода сообщений
+            document.getElementById('message-input').disabled = true;
+            document.getElementById('send-btn').disabled = true;
+            
+            // Показываем приветственное сообщение
+            document.getElementById('chat-header-content').innerHTML = `
+                <div class="chat-contact-info">
+                    <div class="chat-contact-avatar"></div>
+                    <div>
+                        <h3>Выберите контакт</h3>
+                        <div class="chat-contact-details">
+                            <span class="chat-contact-uin">UIN: ---</span>
+                            <span class="chat-contact-status"></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messages-container').innerHTML = `
+                <div class="welcome-message">
+                    <div class="welcome-icon">💬</div>
+                    <h3>ICQ Messenger</h3>
+                    <p>Выберите контакт из списка слева, чтобы начать переписку</p>
+                </div>
+            `;
+        });
+    }
+}
+
+// Обновляем функцию selectContact:
+async function selectContact(contact) {
+    if (!contact || !currentUser) return;
+    
+    console.log('Выбран контакт:', contact.display_name);
+    
+    selectedContact = contact;
+    
+    // Показываем только чат (скрываем контакты)
+    showChatOnly();
+    
+    // Обновляем заголовок чата
+    document.getElementById('chat-header-content').innerHTML = `
+        <button id="back-to-contacts" class="back-to-contacts">←</button>
+        <div class="chat-contact-info">
+            <div class="chat-contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div>
+                <h3>${contact.display_name}</h3>
+                <div class="chat-contact-details">
+                    <span class="chat-contact-uin">UIN: ${contact.uin}</span>
+                    <span class="chat-contact-status ${contact.status}">${getStatusText(contact.status)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Инициализируем кнопку "Назад"
+    initBackToContactsButton();
+    
+    // Активируем поле ввода
+    document.getElementById('message-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('message-input').focus();
+    
+    // Загружаем сообщения и подписываемся на новые
+    await loadMessages();
+    subscribeToMessages();
+    
+    // Отмечаем сообщения как прочитанные
+    markMessagesAsRead(contact.id);
+}
+
+// Обновляем функцию initEventListeners - добавляем инициализацию кнопки:
+function initEventListeners() {
+    // ... существующий код ...
+    
+    // Инициализируем кнопку "Назад к контактам"
+    initBackToContactsButton();
+}
+
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 function initServiceWorker() {
