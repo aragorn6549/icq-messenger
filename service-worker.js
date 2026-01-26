@@ -156,26 +156,41 @@ function fetchAndCache(request) {
 }
 
 // Обработка push-уведомлений
+// Обновляем обработку push-уведомлений
 self.addEventListener('push', event => {
     console.log(`${APP_NAME}: Получено push-уведомление`);
     
-    if (!event.data) {
-        return;
+    let notificationData = {
+        title: 'ICQ Messenger',
+        body: 'Новое сообщение',
+        icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+        badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png'
+    };
+    
+    if (event.data) {
+        try {
+            const data = event.data.json();
+            notificationData = {
+                title: data.title || 'ICQ Messenger',
+                body: data.body || 'Новое сообщение',
+                icon: data.icon || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                badge: data.badge || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                data: data.data || { url: '/' }
+            };
+        } catch (error) {
+            // Если данные не JSON, используем как текст
+            notificationData.body = event.data.text() || 'Новое сообщение';
+        }
     }
     
-    try {
-        const data = event.data.json();
-        const title = data.title || 'ICQ Messenger';
-        const options = {
-            body: data.body || 'Новое сообщение',
-            icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
-            badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+    event.waitUntil(
+        self.registration.showNotification(notificationData.title, {
+            body: notificationData.body,
+            icon: notificationData.icon,
+            badge: notificationData.badge,
             tag: 'icq-message',
             vibrate: [200, 100, 200],
-            data: {
-                url: data.url || '/',
-                timestamp: Date.now()
-            },
+            data: notificationData.data,
             actions: [
                 {
                     action: 'open',
@@ -186,26 +201,47 @@ self.addEventListener('push', event => {
                     title: 'Закрыть'
                 }
             ]
-        };
-        
-        event.waitUntil(
-            self.registration.showNotification(title, options)
-        );
-    } catch (error) {
-        console.error(`${APP_NAME}: Ошибка обработки push-уведомления:`, error);
-        
-        // Простое уведомление в случае ошибки
-        const options = {
-            body: 'У вас новое сообщение',
-            icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
-            badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png'
-        };
-        
-        event.waitUntil(
-            self.registration.showNotification('ICQ Messenger', options)
-        );
+        })
+    );
+});
+
+// Добавим фоновую периодическую синхронизацию
+self.addEventListener('periodicsync', event => {
+    if (event.tag === 'check-new-messages') {
+        console.log(`${APP_NAME}: Фоновая проверка новых сообщений`);
+        event.waitUntil(checkForNewMessages());
     }
 });
+
+async function checkForNewMessages() {
+    // Здесь можно добавить логику проверки новых сообщений
+    // через API Supabase с использованием последнего известного времени
+    console.log(`${APP_NAME}: Проверка новых сообщений...`);
+    
+    // Пример: получаем последние сообщения
+    const lastCheckTime = await getLastCheckTime();
+    const now = new Date().toISOString();
+    
+    // Сохраняем время последней проверки
+    await setLastCheckTime(now);
+    
+    return Promise.resolve();
+}
+
+async function getLastCheckTime() {
+    const cache = await caches.open(CACHE_NAME);
+    const response = await cache.match('last-check-time');
+    if (response) {
+        return await response.text();
+    }
+    return new Date(0).toISOString(); // Начало эпохи
+}
+
+async function setLastCheckTime(time) {
+    const cache = await caches.open(CACHE_NAME);
+    const response = new Response(time);
+    await cache.put('last-check-time', response);
+}
 
 // Обработка клика по уведомлению
 self.addEventListener('notificationclick', event => {
