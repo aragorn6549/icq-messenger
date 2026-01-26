@@ -12,6 +12,201 @@ let selectedContact = null;
 let messagesSubscription = null;
 let deferredPrompt = null;
 
+// ==================== МОБИЛЬНЫЙ ИНТЕРФЕЙС ====================
+
+let touchStartX = 0;
+let touchEndX = 0;
+let isMobileMenuOpen = false;
+
+function initMobileInterface() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', toggleMobileMenu);
+    }
+    
+    // Создаем оверлей для закрытия меню
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.addEventListener('click', hideMobileMenu);
+    document.body.appendChild(overlay);
+    
+    // Добавляем обработчики свайпа
+    document.addEventListener('touchstart', handleTouchStart, false);
+    document.addEventListener('touchmove', handleTouchMove, false);
+    document.addEventListener('touchend', handleTouchEnd, false);
+    
+    // Показываем подсказку о свайпе на мобильных
+    if (window.innerWidth <= 768) {
+        setTimeout(() => {
+            showSwipeHint();
+        }, 3000);
+    }
+}
+
+function toggleMobileMenu() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    if (isMobileMenuOpen) {
+        sidebar.classList.remove('show');
+        overlay.classList.remove('show');
+        isMobileMenuOpen = false;
+    } else {
+        sidebar.classList.add('show');
+        overlay.classList.add('show');
+        isMobileMenuOpen = true;
+    }
+}
+
+function showMobileMenu() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    sidebar.classList.add('show');
+    overlay.classList.add('show');
+    isMobileMenuOpen = true;
+}
+
+function hideMobileMenu() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    
+    sidebar.classList.remove('show');
+    overlay.classList.remove('show');
+    isMobileMenuOpen = false;
+}
+
+// Функции для свайпа
+function handleTouchStart(event) {
+    touchStartX = event.changedTouches[0].screenX;
+}
+
+function handleTouchMove(event) {
+    // Предотвращаем скролл страницы при горизонтальном свайпе
+    if (Math.abs(event.changedTouches[0].screenX - touchStartX) > 10) {
+        event.preventDefault();
+    }
+}
+
+function handleTouchEnd(event) {
+    touchEndX = event.changedTouches[0].screenX;
+    handleSwipe();
+}
+
+function handleSwipe() {
+    const swipeThreshold = 50;
+    const swipeDistance = touchEndX - touchStartX;
+    
+    // Если свайп достаточно большой
+    if (Math.abs(swipeDistance) > swipeThreshold) {
+        // Свайп вправо (открыть меню)
+        if (swipeDistance > 0 && !isMobileMenuOpen && window.innerWidth <= 768) {
+            showMobileMenu();
+        }
+        // Свайп влево (закрыть меню)
+        else if (swipeDistance < 0 && isMobileMenuOpen) {
+            hideMobileMenu();
+        }
+    }
+}
+
+function showSwipeHint() {
+    // Показываем подсказку только если нет контактов
+    const contactsList = document.getElementById('contacts-list');
+    if (contactsList.children.length <= 1) { // Только "нет контактов"
+        const hint = document.createElement('div');
+        hint.className = 'swipe-hint';
+        hint.textContent = '← Свайпните справа, чтобы открыть контакты';
+        hint.id = 'swipe-hint';
+        document.body.appendChild(hint);
+        
+        setTimeout(() => {
+            hint.style.display = 'block';
+        }, 100);
+        
+        // Убираем подсказку через 5 секунд
+        setTimeout(() => {
+            hint.style.opacity = '0';
+            setTimeout(() => {
+                if (hint.parentNode) {
+                    hint.parentNode.removeChild(hint);
+                }
+            }, 300);
+        }, 5000);
+    }
+}
+
+// Обновляем функцию selectContact для мобильных
+async function selectContact(contact) {
+    if (!contact || !currentUser) return;
+    
+    console.log('Выбран контакт:', contact.display_name);
+    
+    selectedContact = contact;
+    
+    // Обновляем заголовок чата
+    document.getElementById('chat-header-content').innerHTML = `
+        <div class="chat-contact-info">
+            <div class="chat-contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div>
+                <h3>${contact.display_name}</h3>
+                <div class="chat-contact-details">
+                    <span class="chat-contact-uin">UIN: ${contact.uin}</span>
+                    <span class="chat-contact-status ${contact.status}">${getStatusText(contact.status)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // На мобильных скрываем меню
+    if (window.innerWidth <= 768) {
+        hideMobileMenu();
+    }
+    
+    // Активируем поле ввода
+    document.getElementById('message-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('message-input').focus();
+    
+    // Загружаем сообщения и подписываемся на новые
+    await loadMessages();
+    subscribeToMessages();
+    
+    // Прокручиваем к последнему сообщению
+    setTimeout(() => {
+        const container = document.getElementById('messages-container');
+        container.scrollTop = container.scrollHeight;
+    }, 100);
+    
+    // Отмечаем сообщения как прочитанные
+    markMessagesAsRead(contact.id);
+}
+
+// Инициализируем мобильный интерфейс при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Приложение инициализируется...');
+    
+    // Запрос разрешения на уведомления
+    requestNotificationPermission();
+    
+    // Инициализация Service Worker для PWA
+    initServiceWorker();
+    
+    // Проверка авторизации
+    checkAuth();
+    
+    // Инициализация обработчиков событий
+    initEventListeners();
+    
+    // Инициализация мобильного интерфейса
+    initMobileInterface();
+    
+    // Проверка интернет-соединения
+    initNetworkStatus();
+});
+
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Приложение инициализируется...');
