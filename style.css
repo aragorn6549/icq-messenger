@@ -1478,3 +1478,91 @@ body {
     background: var(--bg-color);
     color: var(--primary-color);
 }
+
+/* ===== МОБИЛЬНЫЙ ИНТЕРФЕЙС ===== */
+.menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 10px;
+}
+
+/* На мобильных устройствах */
+@media (max-width: 768px) {
+    .menu-toggle {
+        display: block;
+    }
+    
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        background: var(--card-bg);
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .sidebar.show {
+        left: 0;
+    }
+    
+    .chat-area {
+        width: 100%;
+    }
+    
+    /* Оверлей при открытом меню */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+    }
+    
+    .sidebar-overlay.show {
+        display: block;
+    }
+}
+
+/* Бейджик для непрочитанных сообщений */
+.unread-badge {
+    background: var(--primary-color);
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-weight: 600;
+}
+
+/* Стили для свайпа */
+.swipe-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary-color);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 1000;
+    animation: pulse 2s infinite;
+    display: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
