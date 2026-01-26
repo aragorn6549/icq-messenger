@@ -21,10 +21,12 @@
                 <button id="install-btn" class="install-btn" style="display:none;">📱 Установить</button>
             </div>
             <div id="user-info" style="display: none;">
-                <div class="user-info-left">
-                    <span id="user-uin" class="user-uin">UIN: ---</span>
-                    <span id="user-email" class="user-email"></span>
-                    <span id="user-status" class="user-status status-offline"></span>
+               <div class="user-info-left">
+                     <span id="user-uin" class="user-uin">UIN: ---</span>
+                     <span id="user-display-name" class="user-display-name"></span>
+                     <button id="edit-name-btn" class="edit-name-btn" onclick="showEditNameModal()">✎</button>
+                     <span id="user-email" class="user-email"></span>
+                     <span id="user-status" class="user-status status-offline"></span>
                 </div>
                 <div class="user-info-right">
                     <select id="status-select" class="status-select" onchange="changeStatus(this.value)">
@@ -201,5 +203,28 @@
             }, 1000);
         });
     </script>
+<!-- Модальное окно для редактирования имени -->
+<div id="edit-name-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>✏️ Изменить имя</h3>
+            <button class="close-modal" onclick="hideEditNameModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="new-display-name">Ваше имя:</label>
+                <input type="text" id="new-display-name" placeholder="Введите ваше имя" maxlength="30">
+                <p class="hint">💡 Это имя будут видеть другие пользователи</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="saveDisplayName()">Сохранить</button>
+                <button class="btn-secondary" onclick="hideEditNameModal()">Отмена</button>
+                <p id="edit-name-error" class="error"></p>
+                <p id="edit-name-message"></p>
+            </div>
+        </div>
+    </div>
+</div>
+    
 </body>
 </html>
