@@ -227,6 +227,302 @@ document.addEventListener('DOMContentLoaded', () => {
     initNetworkStatus();
 });
 
+// ==================== УЛУЧШЕННЫЕ УВЕДОМЛЕНИЯ И РЕАЛЬНОЕ ВРЕМЯ ====================
+
+// Глобальная подписка на ВСЕ сообщения
+let globalMessagesSubscription = null;
+
+// Инициализируем глобальную подписку
+function initGlobalMessagesSubscription() {
+    if (!currentUser) return;
+    
+    console.log('Инициализация глобальной подписки на сообщения');
+    
+    // Отписываемся от старой подписки
+    if (globalMessagesSubscription) {
+        supabaseClient.removeChannel(globalMessagesSubscription);
+        globalMessagesSubscription = null;
+    }
+    
+    // Подписываемся на ВСЕ входящие сообщения
+    globalMessagesSubscription = supabaseClient
+        .channel('global-messages-' + currentUser.id)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `receiver_id.eq.${currentUser.id}`
+        }, async (payload) => {
+            console.log('Глобальное уведомление о новом сообщении:', payload.new);
+            
+            const message = payload.new;
+            
+            // Получаем информацию об отправителе
+            const { data: senderProfile } = await supabaseClient
+                .from('profiles')
+                .select('display_name, uin')
+                .eq('id', message.sender_id)
+                .single();
+            
+            if (!senderProfile) return;
+            
+            // Проверяем, открыт ли сейчас чат с этим отправителем
+            const isChatOpen = selectedContact && selectedContact.id === message.sender_id;
+            
+            // Обновляем список контактов (для показа последнего сообщения)
+            loadContacts();
+            
+            // Если чат не открыт, показываем уведомление
+            if (!isChatOpen) {
+                showMessageNotification(senderProfile, message);
+            }
+            
+            // Если чат открыт с этим пользователем, обновляем сообщения
+            if (isChatOpen) {
+                await loadMessages();
+                
+                // Прокручиваем к последнему сообщению
+                setTimeout(() => {
+                    const container = document.getElementById('messages-container');
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }, 100);
+            }
+        })
+        .subscribe((status) => {
+            console.log('Статус глобальной подписки:', status);
+        });
+}
+
+// Функция показа уведомления о сообщении
+function showMessageNotification(sender, message) {
+    const notificationTitle = `💬 Новое сообщение от ${sender.display_name}`;
+    const notificationBody = message.content.length > 100 
+        ? message.content.substring(0, 100) + '...' 
+        : message.content;
+    
+    // Проверяем, активно ли окно
+    const isWindowActive = document.hasFocus();
+    
+    if (!isWindowActive && 'Notification' in window && Notification.permission === 'granted') {
+        // Если окно не активно, показываем браузерное уведомление
+        const options = {
+            body: notificationBody,
+            icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+            badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+            tag: 'icq-message-' + sender.id,
+            data: {
+                senderId: sender.id,
+                messageId: message.id,
+                url: window.location.href
+            },
+            vibrate: [100, 50, 100],
+            requireInteraction: false
+        };
+        
+        const notification = new Notification(notificationTitle, options);
+        
+        notification.onclick = function() {
+            window.focus();
+            
+            // Если контакт есть в списке, открываем чат с ним
+            const contactElement = document.querySelector(`.contact-item[data-user-id="${sender.id}"]`);
+            if (contactElement) {
+                contactElement.click();
+            }
+            
+            notification.close();
+        };
+        
+        // Автоматически закрываем через 5 секунд
+        setTimeout(() => notification.close(), 5000);
+    } else if (isWindowActive) {
+        // Если окно активно, показываем тост
+        showToast(`💬 ${sender.display_name}: ${notificationBody}`, 'info');
+        
+        // Виброотклик
+        if ('vibrate' in navigator) {
+            navigator.vibrate([100, 50, 100]);
+        }
+        
+        // Мигание вкладки
+        flashTab(notificationTitle);
+    }
+}
+
+// Функция мигания вкладки
+function flashTab(title) {
+    if (!document.hasFocus()) {
+        const originalTitle = document.title;
+        let isFlashing = false;
+        let flashCount = 0;
+        const maxFlashes = 5;
+        
+        const flashInterval = setInterval(() => {
+            if (flashCount >= maxFlashes) {
+                clearInterval(flashInterval);
+                document.title = originalTitle;
+                return;
+            }
+            
+            isFlashing = !isFlashing;
+            document.title = isFlashing ? `💬 ${title}` : originalTitle;
+            
+            if (!isFlashing) {
+                flashCount++;
+            }
+        }, 500);
+    }
+}
+
+// Обновляем функцию showMainScreen:
+function showMainScreen() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'block';
+    document.getElementById('user-info').style.display = 'flex';
+    
+    loadContacts();
+    trackOnlineStatus();
+    
+    // Инициализируем глобальную подписку на сообщения
+    initGlobalMessagesSubscription();
+    
+    // Проверяем, нужно ли показывать кнопку установки PWA
+    if (deferredPrompt) {
+        document.getElementById('install-btn').style.display = 'block';
+    }
+    
+    // Показываем только контакты (скрываем чат)
+    showContactsOnly();
+}
+
+// Обновляем функцию subscribeToMessages для работы в реальном времени:
+function subscribeToMessages() {
+    // Отписываемся от предыдущей подписки
+    if (messagesSubscription) {
+        supabaseClient.removeChannel(messagesSubscription);
+        messagesSubscription = null;
+    }
+    
+    if (!selectedContact || !currentUser) return;
+    
+    console.log('Подписка на сообщения с:', selectedContact.id);
+    
+    messagesSubscription = supabaseClient
+        .channel('private-messages-' + selectedContact.id)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `or(and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedContact.id}),and(sender_id.eq.${selectedContact.id},receiver_id.eq.${currentUser.id}))`
+        }, async (payload) => {
+            console.log('Новое сообщение в чате:', payload.new);
+            
+            // Немедленно добавляем сообщение в интерфейс
+            addMessageToChat(payload.new);
+            
+            // Обновляем список контактов
+            loadContacts();
+        })
+        .subscribe((status) => {
+            console.log('Статус приватной подписки:', status);
+        });
+}
+
+// Новая функция: добавление сообщения в чат без перезагрузки
+function addMessageToChat(message) {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    
+    const isSent = message.sender_id === currentUser.id;
+    const messageDate = new Date(message.created_at);
+    const today = new Date();
+    
+    // Проверяем, нужно ли добавить разделитель даты
+    const lastDateElement = container.querySelector('.message-date:last-child');
+    let lastDate = null;
+    
+    if (lastDateElement) {
+        lastDate = lastDateElement.textContent;
+    }
+    
+    const messageDay = messageDate.toDateString();
+    const currentDay = today.toDateString();
+    
+    let dateText = '';
+    if (messageDay === currentDay) {
+        dateText = 'Сегодня';
+    } else if (messageDay === new Date(today.setDate(today.getDate() - 1)).toDateString()) {
+        dateText = 'Вчера';
+    } else {
+        dateText = messageDate.toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+    }
+    
+    // Добавляем разделитель даты, если нужно
+    if (!lastDate || lastDate !== dateText) {
+        const dateElement = document.createElement('div');
+        dateElement.className = 'message-date';
+        dateElement.textContent = dateText;
+        container.appendChild(dateElement);
+    }
+    
+    // Создаем элемент сообщения
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${isSent ? 'message-sent' : 'message-received'}`;
+    messageElement.style.animation = 'fadeIn 0.3s ease-out';
+    
+    const time = messageDate.toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    messageElement.innerHTML = `
+        <div class="message-content">${escapeHtml(message.content)}</div>
+        <div class="message-time">${time} ${isSent ? '✓' : ''}</div>
+    `;
+    
+    container.appendChild(messageElement);
+    
+    // Прокручиваем к последнему сообщению
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 100);
+}
+
+// Обновляем функцию loadMessages для работы с кэшированием:
+async function loadMessages() {
+    if (!selectedContact || !currentUser) return;
+    
+    console.log('Загрузка сообщений с:', selectedContact.display_name);
+    
+    try {
+        const { data: messages, error } = await supabaseClient
+            .from('messages')
+            .select('*')
+            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedContact.id}),and(sender_id.eq.${selectedContact.id},receiver_id.eq.${currentUser.id})`)
+            .order('created_at', { ascending: true });
+        
+        if (error) {
+            console.error('Ошибка загрузки сообщений:', error);
+            return;
+        }
+        
+        // Отображаем сообщения
+        displayMessages(messages || []);
+        
+        // Отмечаем сообщения как прочитанные
+        markMessagesAsRead(selectedContact.id);
+        
+    } catch (error) {
+        console.error('Неожиданная ошибка при загрузке сообщений:', error);
+    }
+}
+
 // ==================== УПРАВЛЕНИЕ ВИДИМОСТЬЮ КОНТАКТОВ И ЧАТА ====================
 
 function showChatOnly() {
