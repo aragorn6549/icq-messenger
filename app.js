@@ -273,10 +273,53 @@ function showMainScreen() {
     loadContacts();
     trackOnlineStatus();
     
+    // Подписываемся на ВСЕ входящие сообщения для уведомлений
+    subscribeToAllMessages();
+    
     // Проверяем, нужно ли показывать кнопку установки PWA
     if (deferredPrompt) {
         document.getElementById('install-btn').style.display = 'block';
     }
+}
+
+// Новая функция: Подписка на все входящие сообщения
+function subscribeToAllMessages() {
+    if (!currentUser) return;
+    
+    console.log('Подписка на все входящие сообщения');
+    
+    supabaseClient
+        .channel('all-incoming-messages')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `receiver_id.eq.${currentUser.id}`
+        }, async (payload) => {
+            console.log('Входящее сообщение от:', payload.new.sender_id);
+            
+            // Если чат с этим пользователем не открыт, показываем уведомление
+            if (!selectedContact || selectedContact.id !== payload.new.sender_id) {
+                // Получаем информацию об отправителе
+                const { data: senderProfile } = await supabaseClient
+                    .from('profiles')
+                    .select('display_name')
+                    .eq('id', payload.new.sender_id)
+                    .single();
+                
+                if (senderProfile) {
+                    const messageText = payload.new.content.length > 50 
+                        ? payload.new.content.substring(0, 50) + '...' 
+                        : payload.new.content;
+                    
+                    showNotification('💬 Новое сообщение', `${senderProfile.display_name}: ${messageText}`);
+                    
+                    // Обновляем список контактов, чтобы показать новое сообщение
+                    loadContacts();
+                }
+            }
+        })
+        .subscribe();
 }
 
 // Функция переключения вкладок
@@ -962,22 +1005,58 @@ async function loadContacts() {
             return;
         }
         
-        // Разделяем контакты на три группы
-        const acceptedContacts = [];   // Друзья
-        const incomingRequests = [];   // Тебя добавляют
-        const outgoingRequests = [];   // Ты добавил
+        // Создаем мап для хранения уникальных контактов
+        const uniqueContactsMap = new Map();
         
+        // Обрабатываем каждый контакт
         contacts.forEach(contact => {
             const isIncoming = contact.contact_id === currentUser.id;
             const otherUser = isIncoming ? contact.user : contact.contact;
+            const contactId = otherUser.id;
             
-            if (contact.status === 'accepted') {
-                acceptedContacts.push({ contact, otherUser });
-            } else if (isIncoming) {
-                incomingRequests.push({ contact, otherUser });
+            // Если контакта еще нет в мапе, добавляем
+            if (!uniqueContactsMap.has(contactId)) {
+                uniqueContactsMap.set(contactId, {
+                    user: otherUser,
+                    contactData: contact,
+                    type: contact.status === 'accepted' ? 'accepted' : 
+                          isIncoming ? 'incoming' : 'outgoing'
+                });
             } else {
-                outgoingRequests.push({ contact, otherUser });
+                // Если контакт уже есть, выбираем лучший статус
+                const existing = uniqueContactsMap.get(contactId);
+                if (contact.status === 'accepted') {
+                    // Принятый контакт имеет высший приоритет
+                    existing.type = 'accepted';
+                    existing.contactData = contact;
+                } else if (existing.type !== 'accepted' && isIncoming) {
+                    // Входящий запрос имеет приоритет над исходящим
+                    existing.type = 'incoming';
+                    existing.contactData = contact;
+                }
             }
+        });
+        
+        // Преобразуем мап в массивы
+        const acceptedContacts = [];
+        const incomingRequests = [];
+        const outgoingRequests = [];
+        
+        uniqueContactsMap.forEach(contact => {
+            if (contact.type === 'accepted') {
+                acceptedContacts.push(contact);
+            } else if (contact.type === 'incoming') {
+                incomingRequests.push(contact);
+            } else {
+                outgoingRequests.push(contact);
+            }
+        });
+        
+        // Сортируем принятые контакты: онлайн первые, потом по алфавиту
+        acceptedContacts.sort((a, b) => {
+            if (a.user.status === 'online' && b.user.status !== 'online') return -1;
+            if (a.user.status !== 'online' && b.user.status === 'online') return 1;
+            return a.user.display_name.localeCompare(b.user.display_name);
         });
         
         // 1. Показываем входящие запросы
@@ -990,20 +1069,20 @@ async function loadContacts() {
             incomingRequests.forEach(item => {
                 const requestElement = document.createElement('div');
                 requestElement.className = 'contact-request';
-                requestElement.dataset.contactId = item.contact.id;
+                requestElement.dataset.contactId = item.contactData.id;
                 
                 requestElement.innerHTML = `
-                    <div class="request-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
+                    <div class="request-avatar">${item.user.display_name.charAt(0).toUpperCase()}</div>
                     <div class="request-info">
-                        <div class="request-name">${item.otherUser.display_name}</div>
+                        <div class="request-name">${item.user.display_name}</div>
                         <div class="request-details">
-                            <span class="request-uin">UIN: ${item.otherUser.uin}</span>
+                            <span class="request-uin">UIN: ${item.user.uin}</span>
                             <span class="request-status">Хочет добавить вас в друзья</span>
                         </div>
                     </div>
                     <div class="request-buttons">
-                        <button class="btn-accept" onclick="acceptContactRequest('${item.contact.id}', '${item.otherUser.id}')">✓ Принять</button>
-                        <button class="btn-reject" onclick="rejectContactRequest('${item.contact.id}')">✗ Отклонить</button>
+                        <button class="btn-accept" onclick="acceptContactRequest('${item.contactData.id}', '${item.user.id}')">✓ Принять</button>
+                        <button class="btn-reject" onclick="rejectContactRequest('${item.contactData.id}')">✗ Отклонить</button>
                     </div>
                 `;
                 
@@ -1021,29 +1100,42 @@ async function loadContacts() {
             acceptedContacts.forEach(item => {
                 const contactElement = document.createElement('div');
                 contactElement.className = 'contact-item';
-                contactElement.dataset.userId = item.otherUser.id;
+                contactElement.dataset.userId = item.user.id;
                 
-                // Получаем последнее сообщение
-                getLastMessage(item.otherUser.id).then(lastMessage => {
-                    contactElement.innerHTML = `
-                        <div class="contact-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
-                        <div class="contact-info">
-                            <div class="contact-name">${item.otherUser.display_name}</div>
-                            <div class="contact-details">
-                                <span class="contact-uin">UIN: ${item.otherUser.uin}</span>
-                                <span class="contact-status ${item.otherUser.status}">${getStatusText(item.otherUser.status)}</span>
+                // Получаем последнее сообщение и количество непрочитанных
+                getLastMessage(item.user.id).then(lastMessage => {
+                    getUnreadCount(item.user.id).then(unreadCount => {
+                        contactElement.innerHTML = `
+                            <div class="contact-avatar">${item.user.display_name.charAt(0).toUpperCase()}</div>
+                            <div class="contact-info">
+                                <div class="contact-name">
+                                    ${item.user.display_name}
+                                    ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}
+                                </div>
+                                <div class="contact-details">
+                                    <span class="contact-uin">UIN: ${item.user.uin}</span>
+                                    <span class="contact-status ${item.user.status}">${getStatusText(item.user.status)}</span>
+                                </div>
+                                ${lastMessage ? `<div class="last-message">${lastMessage.content.substring(0, 30)}${lastMessage.content.length > 30 ? '...' : ''}</div>` : ''}
                             </div>
-                            ${lastMessage ? `<div class="last-message">${lastMessage.content.substring(0, 30)}${lastMessage.content.length > 30 ? '...' : ''}</div>` : ''}
-                        </div>
-                    `;
+                        `;
+                    });
                 });
                 
                 contactElement.addEventListener('click', () => {
-                    selectContact(item.otherUser);
+                    selectContact(item.user);
+                    // На мобильных скрываем список контактов
+                    if (window.innerWidth <= 768) {
+                        hideContactsList();
+                    }
+                    
                     document.querySelectorAll('.contact-item').forEach(item => {
                         item.classList.remove('active');
                     });
                     contactElement.classList.add('active');
+                    
+                    // Отмечаем сообщения как прочитанные
+                    markMessagesAsRead(item.user.id);
                 });
                 
                 contactsList.appendChild(contactElement);
@@ -1062,11 +1154,11 @@ async function loadContacts() {
                 requestElement.className = 'contact-request outgoing';
                 
                 requestElement.innerHTML = `
-                    <div class="request-avatar">${item.otherUser.display_name.charAt(0).toUpperCase()}</div>
+                    <div class="request-avatar">${item.user.display_name.charAt(0).toUpperCase()}</div>
                     <div class="request-info">
-                        <div class="request-name">${item.otherUser.display_name}</div>
+                        <div class="request-name">${item.user.display_name}</div>
                         <div class="request-details">
-                            <span class="request-uin">UIN: ${item.otherUser.uin}</span>
+                            <span class="request-uin">UIN: ${item.user.uin}</span>
                             <span class="request-status">Ожидает подтверждения...</span>
                         </div>
                     </div>
@@ -1081,6 +1173,42 @@ async function loadContacts() {
     }
 }
 
+// Функция для получения количества непрочитанных сообщений
+async function getUnreadCount(contactId) {
+    if (!currentUser || !contactId) return 0;
+    
+    try {
+        const { data: messages } = await supabaseClient
+            .from('messages')
+            .select('id')
+            .eq('sender_id', contactId)
+            .eq('receiver_id', currentUser.id)
+            .is('read_at', null);
+        
+        return messages ? messages.length : 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+// Функция для отметки сообщений как прочитанных
+async function markMessagesAsRead(contactId) {
+    if (!currentUser || !contactId) return;
+    
+    try {
+        await supabaseClient
+            .from('messages')
+            .update({ read_at: new Date().toISOString() })
+            .eq('sender_id', contactId)
+            .eq('receiver_id', currentUser.id)
+            .is('read_at', null);
+        
+        // Обновляем список контактов (убираем бейджик)
+        loadContacts();
+    } catch (error) {
+        console.error('Ошибка отметки сообщений как прочитанных:', error);
+    }
+}
 async function getLastMessage(contactId) {
     if (!currentUser || !contactId) return null;
     
@@ -1364,7 +1492,14 @@ function subscribeToMessages() {
         }, async (payload) => {
             console.log('Новое сообщение:', payload.new);
             
+            // Обновляем список сообщений
             await loadMessages();
+            
+            // Прокручиваем к последнему сообщению
+            setTimeout(() => {
+                const container = document.getElementById('messages-container');
+                container.scrollTop = container.scrollHeight;
+            }, 100);
             
             // Показываем уведомление, если сообщение от другого пользователя
             if (payload.new.sender_id !== currentUser.id) {
@@ -1373,12 +1508,18 @@ function subscribeToMessages() {
                     ? payload.new.content.substring(0, 50) + '...' 
                     : payload.new.content;
                 
-                showNotification('Новое сообщение', `${contactName}: ${messageText}`);
+                // Показываем браузерное уведомление
+                if (Notification.permission === 'granted') {
+                    showNotification('💬 Новое сообщение', `${contactName}: ${messageText}`);
+                }
                 
                 // Виброотклик (если поддерживается)
                 if ('vibrate' in navigator) {
                     navigator.vibrate([100, 50, 100]);
                 }
+                
+                // Обновляем список контактов, чтобы показать последнее сообщение
+                loadContacts();
             }
         })
         .subscribe((status) => {
