@@ -110,6 +110,116 @@ function initNetworkStatus() {
     });
 }
 
+// ==================== РЕДАКТИРОВАНИЕ ИМЕНИ ====================
+
+function showEditNameModal() {
+    document.getElementById('edit-name-modal').style.display = 'flex';
+    document.getElementById('new-display-name').value = currentUser?.user_metadata?.display_name || '';
+    document.getElementById('edit-name-error').textContent = '';
+    document.getElementById('edit-name-message').textContent = '';
+    document.getElementById('new-display-name').focus();
+}
+
+function hideEditNameModal() {
+    document.getElementById('edit-name-modal').style.display = 'none';
+}
+
+async function saveDisplayName() {
+    const newName = document.getElementById('new-display-name').value.trim();
+    const errorElement = document.getElementById('edit-name-error');
+    const messageElement = document.getElementById('edit-name-message');
+    
+    errorElement.textContent = '';
+    messageElement.textContent = '';
+    
+    if (!newName) {
+        errorElement.textContent = 'Введите имя';
+        return;
+    }
+    
+    if (newName.length > 30) {
+        errorElement.textContent = 'Имя не должно превышать 30 символов';
+        return;
+    }
+    
+    try {
+        showLoading('Сохранение имени...');
+        
+        // 1. Обновляем в Supabase Auth
+        const { error: authError } = await supabaseClient.auth.updateUser({
+            data: { display_name: newName }
+        });
+        
+        if (authError) throw authError;
+        
+        // 2. Обновляем в таблице profiles
+        const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .update({ display_name: newName })
+            .eq('id', currentUser.id);
+        
+        if (profileError) throw profileError;
+        
+        hideLoading();
+        messageElement.textContent = '✅ Имя успешно изменено!';
+        messageElement.style.color = 'green';
+        
+        // Обновляем отображение имени
+        document.getElementById('user-display-name').textContent = newName;
+        currentUser.user_metadata = { ...currentUser.user_metadata, display_name: newName };
+        
+        setTimeout(() => {
+            hideEditNameModal();
+            showToast('Имя успешно обновлено!');
+        }, 1500);
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка изменения имени:', error);
+        errorElement.textContent = 'Ошибка при изменении имени';
+    }
+}
+
+// Обновляем функцию loadUserProfile, чтобы отображалось имя:
+async function loadUserProfile() {
+    if (!currentUser) return;
+    
+    console.log('Загрузка профиля пользователя:', currentUser.id);
+    
+    try {
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (error) {
+            console.log('Профиль не найден, создаем новый...');
+            await createUserProfile(currentUser.id, currentUser.user_metadata?.display_name || 'Пользователь');
+            await loadUserProfile();
+            return;
+        }
+        
+        console.log('Профиль загружен:', profile);
+        
+        // Обновляем UI
+        document.getElementById('user-uin').textContent = `UIN: ${profile.uin}`;
+        document.getElementById('user-email').textContent = currentUser.email;
+        document.getElementById('user-display-name').textContent = profile.display_name || 'Без имени';
+        
+        // Устанавливаем статус в select
+        const statusSelect = document.getElementById('status-select');
+        if (statusSelect) {
+            statusSelect.value = profile.status;
+        }
+        
+        updateStatusDisplay(profile.status);
+        
+    } catch (error) {
+        console.error('Ошибка загрузки профиля:', error);
+    }
+}
+
 // ==================== АВТОРИЗАЦИЯ ====================
 
 async function checkAuth() {
