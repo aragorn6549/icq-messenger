@@ -691,6 +691,8 @@ async function loadContacts() {
 
 function displayContacts(contactsData) {
     const contactsList = document.getElementById('contacts-list');
+    if (!contactsList) return;
+    
     contactsList.innerHTML = ''; // Очищаем список
     
     if (!contactsData || contactsData.length === 0) {
@@ -734,10 +736,11 @@ function displayContacts(contactsData) {
         return a.display_name.localeCompare(b.display_name);
     });
     
+    // Создаем элементы контактов
     contacts.forEach(contact => {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
-        contactItem.onclick = () => selectContact(contact);
+        contactItem.onclick = () => selectContact(contact); // Важно: без второго параметра
         
         contactItem.innerHTML = `
             <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
@@ -754,59 +757,72 @@ function displayContacts(contactsData) {
     });
 }
 
-
-function selectContact(contact) {
+function selectContact(contact, isMobileMenu = false) {
     selectedContact = contact;
-    console.log('Выбран контакт:', contact.display_name);
-
-    // Обновляем UI чата с проверкой существования элементов
-    const chatTitle = document.getElementById('chat-title');
-    const chatUin = document.getElementById('chat-uin');
-    const chatStatus = document.getElementById('chat-status');
-    const chatAvatar = document.getElementById('chat-avatar');
-    const chatDetails = document.getElementById('chat-details');
+    console.log('Выбран контакт:', contact.display_name, isMobileMenu ? '(из мобильного меню)' : '');
     
-    // Проверяем и обновляем каждый элемент, если он существует
-    if (chatTitle) chatTitle.textContent = contact.display_name;
-    if (chatUin) chatUin.textContent = `UIN: ${contact.uin}`;
-    
-    if (chatStatus) {
-        chatStatus.className = `chat-contact-status status-${contact.status}`;
-        chatStatus.textContent = getStatusEmoji(contact.status);
-    }
-    
-    if (chatAvatar) {
-        chatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
-        chatAvatar.style.display = 'flex';
-    }
-    
-    if (chatDetails) chatDetails.style.display = 'flex';
-
-    // Обновляем мобильную шапку
-    if (window.innerWidth <= 768) {
-        updateMobileContactHeader(contact);
-    }
-
-    // Скрываем приветственное сообщение
-    const welcomeMessage = document.getElementById('welcome-message');
-    if (welcomeMessage) welcomeMessage.style.display = 'none';
-
-    // На мобильных скрываем меню
-    if (window.innerWidth <= 768) {
-        hideMobileMenu();
-    }
-
-    // Активируем поле ввода
+    // ОБЩИЕ ОБНОВЛЕНИЯ (работают везде)
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
+    const welcomeMessage = document.getElementById('welcome-message');
     
+    // Активируем поле ввода
     if (messageInput) {
         messageInput.disabled = false;
         messageInput.placeholder = 'Введите сообщение...';
+        messageInput.focus(); // Фокусируемся на поле ввода
     }
     
     if (sendBtn) sendBtn.disabled = false;
-
+    
+    // Скрываем приветственное сообщение
+    if (welcomeMessage) welcomeMessage.style.display = 'none';
+    
+    // ОБНОВЛЕНИЕ ДЛЯ КОМПЬЮТЕРНОЙ ВЕРСИИ
+    if (window.innerWidth > 768 || !isMobileMenu) {
+        const chatTitle = document.getElementById('chat-title');
+        const chatUin = document.getElementById('chat-uin');
+        const chatStatus = document.getElementById('chat-status');
+        const chatAvatar = document.getElementById('chat-avatar');
+        const chatDetails = document.getElementById('chat-details');
+        
+        if (chatTitle) chatTitle.textContent = contact.display_name;
+        if (chatUin) chatUin.textContent = `UIN: ${contact.uin}`;
+        
+        if (chatStatus) {
+            chatStatus.className = `chat-contact-status status-${contact.status}`;
+            chatStatus.textContent = getStatusEmoji(contact.status);
+        }
+        
+        if (chatAvatar) {
+            chatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+            chatAvatar.style.display = 'flex';
+        }
+        
+        if (chatDetails) chatDetails.style.display = 'flex';
+    }
+    
+    // ОБНОВЛЕНИЕ ДЛЯ МОБИЛЬНОЙ ВЕРСИИ
+    if (window.innerWidth <= 768 || isMobileMenu) {
+        // Обновляем мобильную шапку
+        const mobileTitle = document.getElementById('mobile-title');
+        const mobileContactInfo = document.getElementById('mobile-contact-info');
+        const mobileChatTitle = document.getElementById('mobile-chat-title');
+        const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
+        const mobileChatStatus = document.getElementById('mobile-chat-status');
+        
+        if (mobileTitle) mobileTitle.style.display = 'none';
+        if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
+        if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
+        if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+        if (mobileChatStatus) mobileChatStatus.textContent = getStatusEmoji(contact.status);
+        
+        // Закрываем мобильное меню, если открывали из него
+        if (isMobileMenu) {
+            hideMobileMenu();
+        }
+    }
+    
     // Загружаем сообщения и подписываемся на новые
     loadMessages();
     subscribeToMessages();
@@ -1193,6 +1209,8 @@ async function loadMobileContacts() {
 // Отображение контактов в мобильном меню
 function displayMobileContacts(contactsData) {
     const contactsList = document.getElementById('mobile-contacts-list');
+    if (!contactsList) return;
+    
     contactsList.innerHTML = '';
     
     if (!contactsData || contactsData.length === 0) {
@@ -1206,6 +1224,7 @@ function displayMobileContacts(contactsData) {
         return;
     }
     
+    // Подготавливаем данные
     const contacts = contactsData.map(item => {
         if (item.profiles) {
             return {
@@ -1225,11 +1244,12 @@ function displayMobileContacts(contactsData) {
         return a.display_name.localeCompare(b.display_name);
     });
     
+    // Создаем элементы контактов для мобильного меню
     contacts.forEach(contact => {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
         contactItem.setAttribute('data-contact-id', contact.id);
-        contactItem.onclick = () => selectMobileContact(contact);
+        contactItem.onclick = () => selectContact(contact, true); // Важно: с параметром true
         
         contactItem.innerHTML = `
             <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
@@ -1249,36 +1269,54 @@ function displayMobileContacts(contactsData) {
 // Выбор контакта в мобильном меню
 function selectMobileContact(contact) {
     selectedContact = contact;
-    console.log('Выбран контакт:', contact.display_name);
+    console.log('Выбран контакт (мобильный):', contact.display_name);
     
-    // Обновляем шапку телефона
+    // Обновляем мобильную шапку
     document.getElementById('mobile-title').style.display = 'none';
-    document.getElementById('mobile-contact-info').style.display = 'flex';
-    document.getElementById('mobile-chat-title').textContent = contact.display_name;
-    document.getElementById('mobile-chat-avatar').textContent = contact.display_name.charAt(0).toUpperCase();
-    document.getElementById('mobile-chat-status').textContent = getStatusEmoji(contact.status);
+    const mobileContactInfo = document.getElementById('mobile-contact-info');
+    if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
     
-    // Обновляем основной чат
-    document.getElementById('chat-title').textContent = contact.display_name;
-    document.getElementById('chat-uin').textContent = `UIN: ${contact.uin}`;
-    document.getElementById('chat-status').className = `chat-contact-status status-${contact.status}`;
-    document.getElementById('chat-status').textContent = getStatusEmoji(contact.status);
+    const mobileChatTitle = document.getElementById('mobile-chat-title');
+    const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
     
-    const avatar = document.getElementById('chat-avatar');
-    avatar.textContent = contact.display_name.charAt(0).toUpperCase();
-    avatar.style.display = 'flex';
-    document.getElementById('chat-details').style.display = 'flex';
+    if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
+    if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
     
-    // Скрываем приветствие
-    document.getElementById('welcome-message').style.display = 'none';
+    // Обновляем основной чат (если элементы существуют)
+    const chatTitle = document.getElementById('chat-title');
+    const chatUin = document.getElementById('chat-uin');
+    const chatStatus = document.getElementById('chat-status');
+    const chatAvatar = document.getElementById('chat-avatar');
+    
+    if (chatTitle) chatTitle.textContent = contact.display_name;
+    if (chatUin) chatUin.textContent = `UIN: ${contact.uin}`;
+    
+    if (chatStatus) {
+        chatStatus.className = `chat-contact-status status-${contact.status}`;
+        chatStatus.textContent = getStatusEmoji(contact.status);
+    }
+    
+    if (chatAvatar) {
+        chatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+        chatAvatar.style.display = 'flex';
+    }
+    
+    // Скрываем приветственное сообщение
+    const welcomeMessage = document.getElementById('welcome-message');
+    if (welcomeMessage) welcomeMessage.style.display = 'none';
     
     // Активируем поле ввода
     const messageInput = document.getElementById('message-input');
-    messageInput.disabled = false;
-    messageInput.placeholder = 'Введите сообщение...';
-    document.getElementById('send-btn').disabled = false;
+    const sendBtn = document.getElementById('send-btn');
     
-    // Загружаем сообщения
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Введите сообщение...';
+    }
+    
+    if (sendBtn) sendBtn.disabled = false;
+    
+    // Загружаем сообщения и подписываемся на новые
     loadMessages();
     subscribeToMessages();
     markMessagesAsRead(contact.id);
