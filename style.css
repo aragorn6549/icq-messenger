@@ -515,17 +515,23 @@ body {
 }
 
 .menu-toggle {
-    background: none;
-    border: 1px solid var(--text-light);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-xs);
-    cursor: pointer;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 10000;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+    font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    margin-right: var(--spacing-md);
+    cursor: pointer;
 }
 
 .menu-icon, .close-icon {
@@ -1026,7 +1032,7 @@ body {
     width: 40px;
 }
 
-/* ===== БОКОВОЕ МЕНЮ ДЛЯ ТЕЛЕФОНА ===== */
+/* ===== МОБИЛЬНОЕ МЕНЮ ===== */
 .mobile-sidebar {
     position: fixed;
     top: 0;
@@ -1041,6 +1047,7 @@ body {
     display: flex;
     flex-direction: column;
 }
+
 
 .mobile-sidebar.show {
     left: 0;
@@ -1121,13 +1128,13 @@ body {
     }
 }
 
-/* ===== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ В МОБИЛЬНОМ МЕНЮ ===== */
+/* ===== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ ===== */
 .mobile-user-info {
     background: linear-gradient(135deg, #667eea, #764ba2);
     padding: 20px 15px;
     color: white;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -1166,8 +1173,8 @@ body {
 }
 
 .mobile-user-status {
-    font-size: 12px;
-    opacity: 0.8;
+    font-size: 14px;
+    opacity: 0.9;
 }
 
 .mobile-user-buttons {
@@ -1252,31 +1259,34 @@ body {
     cursor: pointer;
 }
 
-/* Когда меню открыто - кнопка внизу */
+/* Когда меню открыто - кнопка перемещается вниз */
 .menu-toggle.menu-open {
-    top: auto;
-    bottom: 20px;
-    left: 20px;
+    top: auto !important;
+    bottom: 20px !important;
+    left: 20px !important;
     background: #f44336;
-    transform: none !important; /* Важно! Отключаем другие трансформации */
+    transform: rotate(90deg);
 }
 
-/* Значки меню и крестика */
+/* Анимация иконок меню */
 .menu-icon, .close-icon {
     position: absolute;
-    transition: opacity 0.3s;
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .close-icon {
     opacity: 0;
+    transform: rotate(90deg);
 }
 
 .menu-toggle.menu-open .menu-icon {
     opacity: 0;
+    transform: rotate(-90deg);
 }
 
 .menu-toggle.menu-open .close-icon {
     opacity: 1;
+    transform: rotate(0deg);
 }
 
 /* ===== АНИМАЦИЯ ШАПКИ ПРИ ОТКРЫТИИ МЕНЮ ===== */
@@ -1392,10 +1402,14 @@ body {
     background: rgba(255, 50, 50, 0.4);
 }
 
-/* ===== АНИМАЦИЯ ВСЕЙ ШАПКИ ===== */
+/* ===== ИСПРАВЛЕННАЯ АНИМАЦИЯ ШАПКИ ===== */
 .mobile-header {
-    transition: transform 1s ease !important;
-    transform-origin: left center;
+    transition: transform 0.3s ease !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000;
 }
 
 /* Когда меню открыто - сдвигаем всю шапку */
@@ -1419,7 +1433,7 @@ body {
     z-index: 998;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .mobile-sidebar.show ~ .sidebar-overlay {
@@ -1461,3 +1475,5 @@ body {
 .mobile-sidebar {
     z-index: 9999 !important;
 }
+
+
