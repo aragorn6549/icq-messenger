@@ -1101,63 +1101,98 @@ function initNetworkStatus() {
 }
 
 // === МОБИЛЬНЫЙ ИНТЕРФЕЙС ===
+// Инициализация мобильного интерфейса
 function initMobileInterface() {
     const menuToggle = document.getElementById('menu-toggle');
     if (menuToggle) {
         menuToggle.addEventListener('click', toggleMobileMenu);
     }
-    // Создаем оверлей для закрытия меню
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    overlay.addEventListener('click', hideMobileMenu);
-    document.body.appendChild(overlay);
-    // Добавляем обработчики свайпа
+    
+    // Оверлей для закрытия меню
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', hideMobileMenu);
+    }
+    
+    // Обработчики свайпа
     document.addEventListener('touchstart', handleTouchStart, false);
     document.addEventListener('touchmove', handleTouchMove, false);
     document.addEventListener('touchend', handleTouchEnd, false);
-    // Обновляем приветственное сообщение для мобильных
+    
+    // Обновляем приветственное сообщение
     updateWelcomeMessage();
 }
 
+// Функции свайпа
+let touchStartX = 0;
+
+function handleTouchStart(event) {
+    touchStartX = event.changedTouches[0].screenX;
+}
+
+function handleTouchMove(event) {
+    if (Math.abs(event.changedTouches[0].screenX - touchStartX) > 10) {
+        event.preventDefault();
+    }
+}
+
+function handleTouchEnd(event) {
+    const touchEndX = event.changedTouches[0].screenX;
+    const diff = touchStartX - touchEndX;
+    
+    // Свайп справа налево (открыть меню)
+    if (diff > 50) {
+        const sidebar = document.querySelector('.mobile-sidebar');
+        if (!sidebar.classList.contains('show')) {
+            toggleMobileMenu();
+        }
+    }
+    
+    // Свайп слева направо (закрыть меню)
+    if (diff < -50) {
+        const sidebar = document.querySelector('.mobile-sidebar');
+        if (sidebar.classList.contains('show')) {
+            toggleMobileMenu();
+        }
+    }
+}
+
 function toggleMobileMenu() {
-    const sidebar = document.querySelector('.sidebar');
+    const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
     const menuToggle = document.getElementById('menu-toggle');
-    const menuIcon = menuToggle.querySelector('.menu-icon');
-    const closeIcon = menuToggle.querySelector('.close-icon');
-
-    if (isMobileMenuOpen) {
+    const mobileHeader = document.querySelector('.mobile-header');
+    
+    if (sidebar.classList.contains('show')) {
         // Закрываем меню
         sidebar.classList.remove('show');
         overlay.classList.remove('show');
-        menuToggle.classList.remove('active');
-        menuIcon.style.display = 'flex';
-        closeIcon.style.display = 'none';
-        isMobileMenuOpen = false;
+        menuToggle.classList.remove('menu-open');
+        mobileHeader.classList.remove('menu-open');
     } else {
         // Открываем меню
         sidebar.classList.add('show');
         overlay.classList.add('show');
-        menuToggle.classList.add('active');
-        menuIcon.style.display = 'none';
-        closeIcon.style.display = 'flex';
-        isMobileMenuOpen = true;
+        menuToggle.classList.add('menu-open');
+        mobileHeader.classList.add('menu-open');
+        
+        // Обновляем информацию о пользователе
+        updateMobileUserInfo();
+        // Загружаем контакты
+        loadMobileContacts();
     }
 }
 
 function hideMobileMenu() {
-    const sidebar = document.querySelector('.sidebar');
+    const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
     const menuToggle = document.getElementById('menu-toggle');
-    const menuIcon = menuToggle.querySelector('.menu-icon');
-    const closeIcon = menuToggle.querySelector('.close-icon');
-
+    const mobileHeader = document.querySelector('.mobile-header');
+    
     sidebar.classList.remove('show');
     overlay.classList.remove('show');
-    menuToggle.classList.remove('active');
-    menuIcon.style.display = 'flex';
-    closeIcon.style.display = 'none';
-    isMobileMenuOpen = false;
+    menuToggle.classList.remove('menu-open');
+    mobileHeader.classList.remove('menu-open');
 }
 
 // Функции для свайпа
@@ -1368,50 +1403,107 @@ function hideMobileMenu() {
     if (closeIcon) closeIcon.style.display = 'none';
 }
 
-function loadMobileContacts() {
+// Обновлённая функция для загрузки контактов в мобильное меню
+async function loadMobileContacts() {
     if (!currentUser) return;
     
-    // Используем ту же функцию загрузки контактов
-    loadContacts().then(() => {
-        // Копируем контакты из основного списка в мобильный
-        const contactsList = document.getElementById('contacts-list').innerHTML;
-        document.getElementById('mobile-contacts-list').innerHTML = contactsList;
+    try {
+        console.log('Загрузка контактов для мобильного меню...');
+        const { data: contacts, error } = await supabaseClient
+            .from('contacts')
+            .select(`
+                contact_id,
+                profiles!contacts_contact_id_fkey (
+                    id, display_name, uin, status
+                )
+            `)
+            .eq('user_id', currentUser.id);
         
-        // Добавляем обработчики нажатий для мобильных контактов
-        const mobileContacts = document.querySelectorAll('#mobile-contacts-list .contact-item');
-        mobileContacts.forEach(contact => {
-            contact.onclick = function() {
-                const contactId = this.getAttribute('data-contact-id');
-                selectMobileContact(contactId);
-                hideMobileMenu(); // Закрываем меню после выбора
+        if (error) throw error;
+        
+        displayMobileContacts(contacts);
+    } catch (error) {
+        console.error('Ошибка загрузки контактов для мобильного меню:', error);
+    }
+}
+
+// Отображение контактов в мобильном меню
+function displayMobileContacts(contactsData) {
+    const contactsList = document.getElementById('mobile-contacts-list');
+    contactsList.innerHTML = '';
+    
+    if (!contactsData || contactsData.length === 0) {
+        contactsList.innerHTML = `
+            <div class="no-contacts">
+                <div>👋 Начните общение!</div>
+                <p>Добавьте контакты по UIN</p>
+                <button onclick="showAddContact(); hideMobileMenu();" class="add-first-contact">Добавить контакт</button>
+            </div>
+        `;
+        return;
+    }
+    
+    const contacts = contactsData.map(item => {
+        if (item.profiles) {
+            return {
+                id: item.profiles.id,
+                display_name: item.profiles.display_name,
+                uin: item.profiles.uin,
+                status: item.profiles.status
             };
-        });
+        }
+        return null;
+    }).filter(Boolean);
+    
+    // Сортировка
+    contacts.sort((a, b) => {
+        if (a.status === 'online' && b.status !== 'online') return -1;
+        if (a.status !== 'online' && b.status === 'online') return 1;
+        return a.display_name.localeCompare(b.display_name);
+    });
+    
+    contacts.forEach(contact => {
+        const contactItem = document.createElement('div');
+        contactItem.className = 'contact-item';
+        contactItem.setAttribute('data-contact-id', contact.id);
+        contactItem.onclick = () => selectMobileContact(contact);
+        
+        contactItem.innerHTML = `
+            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div class="contact-info">
+                <div class="contact-name">${contact.display_name}</div>
+                <div class="contact-details">
+                    <span class="contact-uin">UIN: ${contact.uin}</span>
+                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                </div>
+            </div>
+        `;
+        
+        contactsList.appendChild(contactItem);
     });
 }
 
-function selectMobileContact(contactId) {
-    // Находим контакт в списке
-    const contacts = document.querySelectorAll('#mobile-contacts-list .contact-item');
-    contacts.forEach(contact => {
-        if (contact.getAttribute('data-contact-id') === contactId) {
-            // Получаем информацию о контакте
-            const name = contact.querySelector('.contact-name').textContent;
-            const uin = contact.querySelector('.contact-uin').textContent.replace('UIN: ', '');
-            const status = contact.querySelector('.contact-status').className.replace('contact-status ', '');
-            
-            // Обновляем шапку телефона
-            updateMobileHeader(name, uin, status);
-            
-            // Выбираем контакт в основном чате
-            selectContact({ 
-                id: contactId, 
-                display_name: name, 
-                uin: uin, 
-                status: status 
-            });
-        }
-    });
+// Выбор контакта в мобильном меню
+function selectMobileContact(contact) {
+    selectedContact = contact;
+    console.log('Выбран контакт:', contact.display_name);
+    
+    // Обновляем шапку телефона
+    document.getElementById('mobile-title').style.display = 'none';
+    document.getElementById('mobile-contact-info').style.display = 'flex';
+    document.getElementById('mobile-chat-title').textContent = contact.display_name;
+    document.getElementById('mobile-chat-avatar').textContent = contact.display_name.charAt(0).toUpperCase();
+…    
+    // Загружаем сообщения
+    loadMessages();
+    subscribeToMessages();
+    markMessagesAsRead(contact.id);
+    
+    // Закрываем меню
+    hideMobileMenu();
 }
+    
+
 
 function updateMobileHeader(name, uin, status) {
     // Прячем название приложения
@@ -1485,34 +1577,38 @@ function initMobileInterface() {
 function updateMobileUserInfo() {
     if (!currentUser) return;
     
-    // Обновляем аватар и имя
-    const userAvatar = document.getElementById('mobile-user-avatar-text');
-    const userName = document.getElementById('mobile-user-name');
-    const userUin = document.getElementById('mobile-user-uin');
-    const userStatus = document.getElementById('mobile-user-status');
-    
-    if (userAvatar && userName && userUin && userStatus) {
-        // Берем первую букву имени или email
-        const displayName = currentUser.user_metadata?.display_name || 
-                           currentUser.email?.split('@')[0] || '?';
-        
-        userAvatar.textContent = displayName.charAt(0).toUpperCase();
-        userName.textContent = displayName;
-        
-        // Получаем UIN из основной шапки
+    try {
+        // Получаем данные из основной шапки
         const uinElement = document.getElementById('user-uin');
-        if (uinElement) {
-            userUin.textContent = uinElement.textContent;
-        }
+        const nameElement = document.getElementById('user-display-name');
+        const statusSelect = document.getElementById('status-select');
         
-        // Получаем статус из основной шапки
-        const statusElement = document.getElementById('user-status');
-        if (statusElement) {
-            userStatus.textContent = statusElement.textContent;
-        }
+        if (!uinElement || !nameElement || !statusSelect) return;
+        
+        const uin = uinElement.textContent.replace('UIN: ', '');
+        const displayName = nameElement.textContent || currentUser.email.split('@')[0];
+        const status = statusSelect.value;
+        
+        // Обновляем мобильное меню
+        const avatarText = document.getElementById('mobile-user-avatar-text');
+        const userName = document.getElementById('mobile-user-name');
+        const userUin = document.getElementById('mobile-user-uin');
+        const userStatus = document.getElementById('mobile-user-status');
+        const mobileStatusSelect = document.getElementById('mobile-status-select');
+        
+        if (avatarText) avatarText.textContent = displayName.charAt(0).toUpperCase();
+        if (userName) userName.textContent = displayName;
+        if (userUin) userUin.textContent = `UIN: ${uin}`;
+        if (userStatus) userStatus.textContent = getStatusText(status);
+        if (mobileStatusSelect) mobileStatusSelect.value = status;
+        
+        console.log("Мобильная информация обновлена:", { displayName, uin, status });
+    } catch (error) {
+        console.error('Ошибка обновления мобильной информации:', error);
     }
 }
 
+    
 // === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
 
 function showMobileMenu() {
