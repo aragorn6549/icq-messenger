@@ -8,6 +8,63 @@ let deferredPrompt = null;
 let isMobileMenuOpen = false;
 let touchStartX = 0;
 
+// === ОБНОВЛЕНИЕ ИНФОРМАЦИИ О ПОЛЬЗОВАТЕЛЕ ===
+function updateMobileUserInfo(profileData) {
+    if (!currentUser) return;
+    
+    console.log("Обновляем мобильную информацию:", profileData);
+    
+    try {
+        let displayName, uin, status;
+        
+        if (profileData) {
+            // Используем переданные данные
+            displayName = profileData.display_name || currentUser.email.split('@')[0];
+            uin = profileData.uin || '---';
+            status = profileData.status || 'offline';
+        } else {
+            // Пытаемся взять из основной шапки
+            const nameElement = document.getElementById('user-display-name');
+            const uinElement = document.getElementById('user-uin');
+            const statusSelect = document.getElementById('status-select');
+            
+            displayName = nameElement ? nameElement.textContent : currentUser.email.split('@')[0];
+            uin = uinElement ? uinElement.textContent.replace('UIN: ', '') : '---';
+            status = statusSelect ? statusSelect.value : 'offline';
+        }
+        
+        // Обновляем мобильное меню
+        const avatarText = document.getElementById('mobile-user-avatar-text');
+        const userName = document.getElementById('mobile-user-name');
+        const userUin = document.getElementById('mobile-user-uin');
+        const userStatus = document.getElementById('mobile-user-status');
+        const mobileStatusSelect = document.getElementById('mobile-status-select');
+        
+        if (avatarText) avatarText.textContent = displayName.charAt(0).toUpperCase();
+        if (userName) userName.textContent = displayName;
+        if (userUin) userUin.textContent = `UIN: ${uin}`;
+        if (userStatus) userStatus.textContent = getStatusText(status);
+        if (mobileStatusSelect) mobileStatusSelect.value = status;
+        
+        console.log("Мобильная информация обновлена:", { displayName, uin, status });
+        
+    } catch (error) {
+        console.error('Ошибка обновления мобильной информации:', error);
+    }
+}
+
+// Функция для получения текста статуса
+function getStatusText(status) {
+    const statusMap = {
+        'online': '🟢 Онлайн',
+        'away': '🟡 Отошёл',
+        'dnd': '🔴 Не беспокоить',
+        'invisible': '⚫ Невидимка',
+        'offline': '⚪ Оффлайн'
+    };
+    return statusMap[status] || '⚪ Оффлайн';
+}
+
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
     const supabaseUrl = 'https://dcxdpieejeuhyeybfbff.supabase.co'; // ЗАМЕНИТЬ НА ВАШ РЕАЛЬНЫЙ URL
@@ -327,24 +384,25 @@ async function loadUserProfile() {
         document.getElementById('user-uin').textContent = `UIN: ${profile.uin}`;
         document.getElementById('user-display-name').textContent = profile.display_name;
         document.getElementById('user-email').textContent = currentUser.email;
-        
         // Устанавливаем статус в select
         const statusSelect = document.getElementById('status-select');
         if (statusSelect) {
             statusSelect.value = profile.status;
         }
         updateStatusDisplay(profile.status);
-        
         // Обновляем UIN в модальном окне
         document.getElementById('my-uin').textContent = profile.uin;
         
-        // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ
-        updateMobileUserInfo();
+        // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ С ПЕРЕДАННЫМИ ДАННЫМИ
+        updateMobileUserInfo(profile);
         
     } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
     }
 }
+
+
+
 
 async function createUserProfile(userId, displayName) {
     console.log('Создание профиля для пользователя:', userId);
@@ -415,10 +473,10 @@ async function changeStatus(newStatus) {
     if (!currentUser) return;
     await updateUserStatus(newStatus);
     updateStatusDisplay(newStatus);
-    showToast(`Статус изменен на: ${newStatus}`);
+    showToast(`Статус изменен на: ${getStatusText(newStatus)}`);
     
     // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ
-    updateMobileUserInfo();
+    updateMobileUserInfo({ status: newStatus });
 }
 
 // === ФУНКЦИИ КОНТАКТОВ ===
@@ -1243,30 +1301,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
 
 function showMobileMenu() {
+    console.log("Открываем мобильное меню");
+    
+    // 1. Добавляем класс для анимации кнопки
+    const menuButton = document.getElementById('menu-toggle');
+    if (menuButton) {
+        menuButton.classList.add('menu-open');
+    }
+    
+    // 2. Добавляем класс для сдвига шапки
+    const mobileHeader = document.querySelector('.mobile-header');
+    if (mobileHeader) {
+        mobileHeader.classList.add('menu-open');
+    }
+    
+    // 3. Показываем меню
     const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
     const menuIcon = document.querySelector('.menu-icon');
     const closeIcon = document.querySelector('.close-icon');
     
-    sidebar.classList.add('show');
-    overlay.style.display = 'block';
-    menuIcon.style.display = 'none';
-    closeIcon.style.display = 'block';
+    if (sidebar) sidebar.classList.add('show');
+    if (overlay) {
+        overlay.style.display = 'block';
+        overlay.style.opacity = '1';
+        overlay.style.visibility = 'visible';
+    }
+    if (menuIcon) menuIcon.style.display = 'none';
+    if (closeIcon) closeIcon.style.display = 'block';
     
-    // Загружаем контакты в мобильное меню
-    loadMobileContacts();
+    // 4. Обновляем информацию о пользователе
+    updateMobileUserInfo();
+    
+    // 5. Загружаем контакты
+    setTimeout(loadMobileContacts, 100); // Чуть позже, чтобы меню успело открыться
 }
 
 function hideMobileMenu() {
+    console.log("Закрываем мобильное меню");
+    
+    // 1. Убираем класс для анимации кнопки
+    const menuButton = document.getElementById('menu-toggle');
+    if (menuButton) {
+        menuButton.classList.remove('menu-open');
+    }
+    
+    // 2. Убираем класс для сдвига шапки
+    const mobileHeader = document.querySelector('.mobile-header');
+    if (mobileHeader) {
+        mobileHeader.classList.remove('menu-open');
+    }
+    
+    // 3. Скрываем меню
     const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
     const menuIcon = document.querySelector('.menu-icon');
     const closeIcon = document.querySelector('.close-icon');
     
-    sidebar.classList.remove('show');
-    overlay.style.display = 'none';
-    menuIcon.style.display = 'block';
-    closeIcon.style.display = 'none';
+    if (sidebar) sidebar.classList.remove('show');
+    if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '0';
+        overlay.style.visibility = 'hidden';
+    }
+    if (menuIcon) menuIcon.style.display = 'block';
+    if (closeIcon) closeIcon.style.display = 'none';
 }
 
 function loadMobileContacts() {
@@ -1503,9 +1602,6 @@ function getStatusText(status) {
 // Функция для изменения статуса из мобильного меню
 function changeMobileStatus(newStatus) {
     changeStatus(newStatus);
-    
-    // Обновляем информацию в мобильном меню
-    updateMobileUserInfo();
 }
 
 
