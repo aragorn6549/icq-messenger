@@ -1230,3 +1230,163 @@ body {
         text-align: center;
     }
 }
+
+/* ===== АНИМАЦИЯ КНОПКИ МЕНЮ ===== */
+.menu-toggle {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1001;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 1s ease;
+    border: none;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* Когда меню открыто - кнопка внизу */
+.menu-toggle.menu-open {
+    top: auto;
+    bottom: 20px;
+    left: 20px;
+    background: #f44336;
+}
+
+/* Значки меню и крестика */
+.menu-icon, .close-icon {
+    position: absolute;
+    transition: opacity 0.3s;
+}
+
+.close-icon {
+    opacity: 0;
+}
+
+.menu-open .menu-icon {
+    opacity: 0;
+}
+
+.menu-open .close-icon {
+    opacity: 1;
+}
+
+/* ===== АНИМАЦИЯ ШАПКИ ПРИ ОТКРЫТИИ МЕНЮ ===== */
+.mobile-header-center {
+    transition: transform 1s ease;
+}
+
+.menu-open + .mobile-header-center {
+    transform: translateX(150px);
+}
+
+/* ===== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ В МОБИЛЬНОМ МЕНЮ ===== */
+.mobile-user-info {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 20px 15px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mobile-user-top {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.mobile-user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.mobile-user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-user-name {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mobile-user-uin {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 3px;
+}
+
+.mobile-user-bottom {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.mobile-status-select {
+    flex: 1;
+    padding: 10px;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 14px;
+}
+
+.mobile-status-select option {
+    background: #667eea;
+    color: white;
+}
+
+.mobile-user-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.mobile-user-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.mobile-user-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.mobile-user-btn.logout {
+    background: rgba(255, 50, 50, 0.3);
+    font-size: 14px;
+}
+
+.mobile-user-btn.logout:hover {
+    background: rgba(255, 50, 50, 0.4);
+}
