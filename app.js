@@ -1328,10 +1328,19 @@ async function showMessageNotification(message) {
             ? message.content.substring(0, 50) + '...' 
             : message.content;
         
+        // Получаем общее количество непрочитанных от этого отправителя
+        const unreadCount = getUnreadCount(message.sender_id);
+        
+        // Формируем текст уведомления
+        let notificationBody = messageText;
+        if (unreadCount > 1) {
+            notificationBody = `(${unreadCount}) ${messageText}`;
+        }
+        
         // Показываем браузерное уведомление
         if ('Notification' in window && Notification.permission === 'granted') {
             const notification = new Notification(`💬 ${senderName}`, {
-                body: messageText,
+                body: notificationBody,
                 icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
                 badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
                 tag: 'icq-message',
@@ -1344,6 +1353,15 @@ async function showMessageNotification(message) {
             notification.onclick = () => {
                 window.focus();
                 notification.close();
+                
+                // Если мы знаем, от кого сообщение, открываем чат с ним
+                if (message.sender_id) {
+                    // Находим контакт
+                    const contactElement = document.querySelector(`.contact-item[data-contact-id="${message.sender_id}"]`);
+                    if (contactElement) {
+                        contactElement.click();
+                    }
+                }
             };
             
             // Автоматически закрываем через 5 секунд
@@ -1352,7 +1370,10 @@ async function showMessageNotification(message) {
             }, 5000);
         } else {
             // Если уведомления не разрешены, показываем toast
-            showToast(`💬 Новое сообщение от ${senderName}`, 'info');
+            const toastText = unreadCount > 1 
+                ? `💬 ${unreadCount} новых сообщений от ${senderName}`
+                : `💬 Новое сообщение от ${senderName}`;
+            showToast(toastText, 'info');
         }
     } catch (error) {
         console.error('Ошибка при показе уведомления:', error);
