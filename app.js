@@ -38,6 +38,16 @@ function updateMobileContactHeader(contact) {
 function resetMobileHeader() {
     const contactInfo = document.getElementById('mobile-contact-info');
     if (contactInfo) contactInfo.style.display = 'none';
+    
+    // Сбрасываем UIN
+    const uin = document.getElementById('mobile-chat-uin');
+    if (uin) uin.textContent = 'UIN: ---';
+    
+    // Сбрасываем статус-бейдж
+    const statusBadge = document.getElementById('mobile-chat-status-badge');
+    if (statusBadge) {
+        statusBadge.className = 'mobile-contact-status-badge';
+    }
 }
 
 // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
@@ -803,25 +813,32 @@ function selectContact(contact, isMobileMenu = false) {
     }
     
     // ОБНОВЛЕНИЕ ДЛЯ МОБИЛЬНОЙ ВЕРСИИ
-    if (window.innerWidth <= 768 || isMobileMenu) {
-        // Обновляем мобильную шапку
-        const mobileTitle = document.getElementById('mobile-title');
-        const mobileContactInfo = document.getElementById('mobile-contact-info');
-        const mobileChatTitle = document.getElementById('mobile-chat-title');
-        const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
-        const mobileChatStatus = document.getElementById('mobile-chat-status');
-        
-        if (mobileTitle) mobileTitle.style.display = 'none';
-        if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
-        if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
-        if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
-        if (mobileChatStatus) mobileChatStatus.textContent = getStatusEmoji(contact.status);
-        
-        // Закрываем мобильное меню, если открывали из него
-        if (isMobileMenu) {
-            hideMobileMenu();
-        }
+   
+if (window.innerWidth <= 768 || isMobileMenu) {
+    // Обновляем мобильную шапку
+    const mobileTitle = document.getElementById('mobile-title');
+    const mobileContactInfo = document.getElementById('mobile-contact-info');
+    const mobileChatTitle = document.getElementById('mobile-chat-title');
+    const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
+    const mobileChatUin = document.getElementById('mobile-chat-uin');
+    const mobileChatStatusBadge = document.getElementById('mobile-chat-status-badge');
+    
+    if (mobileTitle) mobileTitle.style.display = 'none';
+    if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
+    if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
+    if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+    if (mobileChatUin) mobileChatUin.textContent = `UIN: ${contact.uin}`;
+    
+    // Обновляем статус-бейдж
+    if (mobileChatStatusBadge) {
+        mobileChatStatusBadge.className = `mobile-contact-status-badge status-${contact.status}`;
     }
+    
+    // Закрываем мобильное меню, если открывали из него
+    if (isMobileMenu) {
+        hideMobileMenu();
+    }
+}
     
     // Загружаем сообщения и подписываемся на новые
     loadMessages();
@@ -1397,6 +1414,14 @@ function initMobileInterface() {
     overlay.className = 'sidebar-overlay';
     overlay.addEventListener('click', hideMobileMenu);
     document.body.appendChild(overlay);
+}
+
+// Функция для обновления статуса контакта в мобильной шапке
+function updateMobileContactStatus(status) {
+    const mobileStatusBadge = document.getElementById('mobile-chat-status-badge');
+    if (mobileStatusBadge && selectedContact) {
+        mobileStatusBadge.className = `mobile-contact-status-badge status-${status}`;
+    }
 }
 
 // Функции свайпа
