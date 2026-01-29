@@ -1511,3 +1511,4 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mobile-install-btn').style.display = 'none';
     });
 });
+});
