@@ -56,48 +56,28 @@ self.addEventListener('activate', event => {
 
 // Стратегия: Сначала сеть, потом кэш (Network First)
 self.addEventListener('fetch', event => {
-    // Пропускаем не-GET запросы и chrome-extension
-    if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
-        return;
-    }
-
+    if (event.request.method !== 'GET') return;
+    
     event.respondWith(
         fetch(event.request)
             .then(response => {
-                // Проверяем, нужно ли кэшировать ответ
-                if (!response || response.status !== 200 || response.type !== 'basic') {
-                    return response;
-                }
-
-                // Клонируем ответ для помещения в кэш
+                // Сохраняем в кэш для оффлайн-работы
                 const responseToCache = response.clone();
-
                 caches.open(CACHE_NAME)
                     .then(cache => {
                         cache.put(event.request, responseToCache);
                     });
-
                 return response;
             })
             .catch(() => {
-                // Если сеть недоступна, пытаемся получить из кэша
+                // Если нет интернета, ищем в кэше
                 return caches.match(event.request)
                     .then(response => {
                         if (response) {
                             return response;
                         }
-                        // Для страниц: показываем offline страницу
-                        if (event.request.headers.get('accept').includes('text/html')) {
-                            return caches.match('/');
-                        }
-                        // Для других ресурсов: возвращаем ошибку
-                        return new Response('Нет подключения к интернету', {
-                            status: 503,
-                            statusText: 'Service Unavailable',
-                            headers: new Headers({
-                                'Content-Type': 'text/plain'
-                            })
-                        });
+                        // Для страниц показываем главную
+                        return caches.match('/');
                     });
             })
     );
