@@ -11,6 +11,7 @@ let userActivityTimeout = null;
 let lastActivityTime = Date.now();
 let networkStatus = 'online';
 let isTabActive = true;
+let unreadMessages = {}; // Объект для хранения непрочитанных сообщений по контактам
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -781,6 +782,82 @@ function displayContacts(contactsData) {
         return null;
     }).filter(Boolean);
     
+    // Сортировка: есть непрочитанные -> онлайн -> оффлайн -> по имени
+    contacts.sort((a, b) => {
+        const aUnread = unreadMessages[a.id] || 0;
+        const bUnread = unreadMessages[b.id] || 0;
+        
+        if (aUnread > 0 && bUnread === 0) return -1;
+        if (aUnread === 0 && bUnread > 0) return 1;
+        if (a.status === 'online' && b.status !== 'online') return -1;
+        if (a.status !== 'online' && b.status === 'online') return 1;
+        return a.display_name.localeCompare(b.display_name);
+    });
+    
+    // Создаем элементы контактов
+    contacts.forEach(contact => {
+        const contactItem = document.createElement('div');
+        contactItem.className = 'contact-item';
+        contactItem.setAttribute('data-contact-id', contact.id);
+        contactItem.onclick = () => selectContact(contact);
+        
+        // Получаем количество непрочитанных сообщений
+        const unreadCount = unreadMessages[contact.id] || 0;
+        
+        contactItem.innerHTML = `
+            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div class="contact-info">
+                <div class="contact-name">${contact.display_name}</div>
+                <div class="contact-details">
+                    <span class="contact-uin">UIN: ${contact.uin}</span>
+                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                </div>
+            </div>
+        `;
+        
+        // Добавляем индикатор непрочитанных, если есть
+        if (unreadCount > 0) {
+            const indicator = document.createElement('div');
+            indicator.className = 'unread-indicator unread-blinking';
+            indicator.innerHTML = '✉️';
+            
+            if (unreadCount > 1) {
+                const counter = document.createElement('span');
+                counter.className = 'unread-count';
+                counter.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                indicator.appendChild(counter);
+            }
+            
+            contactItem.appendChild(indicator);
+        }
+        
+        contactsList.appendChild(contactItem);
+    });
+}
+    
+    // Подготавливаем данные для отображения
+    const contacts = contactsData.map(item => {
+        // Проверяем разные форматы ответа
+        if (item.profiles) {
+            return {
+                id: item.profiles.id,
+                display_name: item.profiles.display_name,
+                uin: item.profiles.uin,
+                status: item.profiles.status,
+                last_seen: item.profiles.last_seen
+            };
+        } else if (item.profiles) { // альтернативный формат
+            return {
+                id: item.profiles.id,
+                display_name: item.profiles.display_name,
+                uin: item.profiles.uin,
+                status: item.profiles.status,
+                last_seen: item.profiles.last_seen
+            };
+        }
+        return null;
+    }).filter(Boolean);
+    
     // Сортировка: онлайн -> оффлайн -> по имени
     contacts.sort((a, b) => {
         if (a.status === 'online' && b.status !== 'online') return -1;
@@ -812,6 +889,9 @@ function displayContacts(contactsData) {
 function selectContact(contact, isMobileMenu = false) {
     selectedContact = contact;
     console.log('Выбран контакт:', contact.display_name, isMobileMenu ? '(из мобильного меню)' : '');
+    
+    // Сбрасываем счетчик непрочитанных сообщений для этого контакта
+    resetUnreadCount(contact.id);
     
     // ОБЩИЕ ОБНОВЛЕНИЯ (работают везде)
     const messageInput = document.getElementById('message-input');
@@ -882,7 +962,7 @@ if (window.innerWidth <= 768 || isMobileMenu) {
     }
 }
     
-    // Загружаем сообщения и подписываемся на новые
+       // Загружаем сообщения и подписываемся на новые
     loadMessages();
     subscribeToMessages();
     markMessagesAsRead(contact.id);
@@ -1174,8 +1254,13 @@ function subscribeToMessages() {
                 // Добавляем сообщение в чат
                 addMessageToDisplay(payload.new, false);
                 
-                // Отмечаем сообщение как прочитанное
-                await markMessagesAsRead(selectedContact.id);
+                // Отмечаем сообщение как прочитанное, если чат открыт
+                if (selectedContact && selectedContact.id === payload.new.sender_id) {
+                    await markMessagesAsRead(selectedContact.id);
+                } else {
+                    // Если чат не открыт с этим контактом, увеличиваем счетчик непрочитанных
+                    incrementUnreadCount(payload.new.sender_id);
+                }
                 
                 // Показываем уведомление, если окно не в фокусе
                 showMessageNotification(payload.new);
@@ -1288,10 +1373,15 @@ async function markMessagesAsRead(contactId) {
         if (error) throw error;
         
         console.log('Сообщения помечены как прочитанные');
+        
+        // Сбрасываем счетчик непрочитанных для этого контакта
+        resetUnreadCount(contactId);
+        
     } catch (error) {
         console.error('Ошибка при пометке сообщений как прочитанных:', error);
     }
 }
+
 
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ИМЕНИ ===
 function showEditNameModal() {
@@ -1591,8 +1681,13 @@ function displayMobileContacts(contactsData) {
         return null;
     }).filter(Boolean);
     
-    // Сортировка
+    // Сортировка: есть непрочитанные -> онлайн -> оффлайн -> по имени
     contacts.sort((a, b) => {
+        const aUnread = unreadMessages[a.id] || 0;
+        const bUnread = unreadMessages[b.id] || 0;
+        
+        if (aUnread > 0 && bUnread === 0) return -1;
+        if (aUnread === 0 && bUnread > 0) return 1;
         if (a.status === 'online' && b.status !== 'online') return -1;
         if (a.status !== 'online' && b.status === 'online') return 1;
         return a.display_name.localeCompare(b.display_name);
@@ -1603,7 +1698,10 @@ function displayMobileContacts(contactsData) {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
         contactItem.setAttribute('data-contact-id', contact.id);
-        contactItem.onclick = () => selectContact(contact, true); // Важно: с параметром true
+        contactItem.onclick = () => selectContact(contact, true);
+        
+        // Получаем количество непрочитанных сообщений
+        const unreadCount = unreadMessages[contact.id] || 0;
         
         contactItem.innerHTML = `
             <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
@@ -1615,6 +1713,22 @@ function displayMobileContacts(contactsData) {
                 </div>
             </div>
         `;
+        
+        // Добавляем индикатор непрочитанных, если есть
+        if (unreadCount > 0) {
+            const indicator = document.createElement('div');
+            indicator.className = 'unread-indicator unread-blinking';
+            indicator.innerHTML = '✉️';
+            
+            if (unreadCount > 1) {
+                const counter = document.createElement('span');
+                counter.className = 'unread-count';
+                counter.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                indicator.appendChild(counter);
+            }
+            
+            contactItem.appendChild(indicator);
+        }
         
         contactsList.appendChild(contactItem);
     });
@@ -1902,6 +2016,176 @@ function searchMobileContacts() {
     });
 }
 
+// === ФУНКЦИИ ДЛЯ ОБРАБОТКИ НЕПРОЧИТАННЫХ СООБЩЕНИЙ ===
+
+// Функция для загрузки непрочитанных сообщений
+async function loadUnreadMessagesCount() {
+    if (!currentUser) return;
+    
+    try {
+        // Загружаем все непрочитанные сообщения
+        const { data: messages, error } = await supabaseClient
+            .from('messages')
+            .select('sender_id, count')
+            .eq('receiver_id', currentUser.id)
+            .eq('read', false)
+            .group('sender_id');
+        
+        if (error) throw error;
+        
+        // Очищаем объект непрочитанных сообщений
+        unreadMessages = {};
+        
+        // Заполняем объект данными
+        if (messages && messages.length > 0) {
+            messages.forEach(item => {
+                unreadMessages[item.sender_id] = item.count || 1;
+            });
+        }
+        
+        console.log('Непрочитанные сообщения загружены:', unreadMessages);
+        
+        // Обновляем индикаторы у контактов
+        updateContactUnreadIndicators();
+        
+    } catch (error) {
+        console.error('Ошибка загрузки непрочитанных сообщений:', error);
+    }
+}
+
+// Функция для обновления индикаторов непрочитанных сообщений у контактов
+function updateContactUnreadIndicators() {
+    // Обновляем в основном списке контактов
+    updateContactsUnreadIndicators('contacts-list');
+    
+    // Обновляем в мобильном списке контактов
+    updateContactsUnreadIndicators('mobile-contacts-list');
+}
+
+// Функция для обновления конкретного списка контактов
+function updateContactsUnreadIndicators(listId) {
+    const contactsList = document.getElementById(listId);
+    if (!contactsList) return;
+    
+    const contactItems = contactsList.querySelectorAll('.contact-item');
+    
+    contactItems.forEach(contactItem => {
+        const contactId = contactItem.getAttribute('data-contact-id');
+        if (contactId && unreadMessages[contactId]) {
+            // Добавляем или обновляем индикатор
+            let indicator = contactItem.querySelector('.unread-indicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.className = 'unread-indicator';
+                indicator.innerHTML = '✉️'; // Иконка конвертика
+                contactItem.appendChild(indicator);
+            }
+            
+            // Добавляем счетчик, если больше 1 сообщения
+            const count = unreadMessages[contactId];
+            if (count > 1) {
+                let counter = indicator.querySelector('.unread-count');
+                if (!counter) {
+                    counter = document.createElement('span');
+                    counter.className = 'unread-count';
+                    indicator.appendChild(counter);
+                }
+                counter.textContent = count > 99 ? '99+' : count;
+            } else {
+                // Удаляем счетчик, если есть
+                const counter = indicator.querySelector('.unread-count');
+                if (counter) counter.remove();
+            }
+            
+            // Добавляем класс для мигания
+            indicator.classList.add('unread-blinking');
+            
+        } else {
+            // Удаляем индикатор, если нет непрочитанных сообщений
+            const indicator = contactItem.querySelector('.unread-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+    });
+}
+
+// Функция для обновления индикатора у конкретного контакта
+function updateContactUnreadIndicator(contactId, count = null) {
+    // Обновляем в объекте
+    if (count !== null) {
+        if (count > 0) {
+            unreadMessages[contactId] = count;
+        } else {
+            delete unreadMessages[contactId];
+        }
+    }
+    
+    // Обновляем в обоих списках
+    ['contacts-list', 'mobile-contacts-list'].forEach(listId => {
+        const contactItem = document.querySelector(`#${listId} .contact-item[data-contact-id="${contactId}"]`);
+        if (contactItem) {
+            const currentCount = unreadMessages[contactId];
+            
+            if (currentCount) {
+                // Добавляем или обновляем индикатор
+                let indicator = contactItem.querySelector('.unread-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.className = 'unread-indicator';
+                    indicator.innerHTML = '✉️';
+                    contactItem.appendChild(indicator);
+                }
+                
+                // Обновляем счетчик
+                const counter = indicator.querySelector('.unread-count');
+                if (currentCount > 1) {
+                    if (!counter) {
+                        const newCounter = document.createElement('span');
+                        newCounter.className = 'unread-count';
+                        indicator.appendChild(newCounter);
+                    }
+                    const countElement = indicator.querySelector('.unread-count');
+                    if (countElement) {
+                        countElement.textContent = currentCount > 99 ? '99+' : currentCount;
+                    }
+                } else if (counter) {
+                    counter.remove();
+                }
+                
+                indicator.classList.add('unread-blinking');
+                
+            } else {
+                // Удаляем индикатор
+                const indicator = contactItem.querySelector('.unread-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        }
+    });
+}
+
+// Функция для получения количества непрочитанных сообщений от контакта
+function getUnreadCount(contactId) {
+    return unreadMessages[contactId] || 0;
+}
+
+// Функция для сброса счетчика непрочитанных у контакта
+function resetUnreadCount(contactId) {
+    if (unreadMessages[contactId]) {
+        delete unreadMessages[contactId];
+        updateContactUnreadIndicator(contactId);
+    }
+}
+
+// Функция для увеличения счетчика непрочитанных у контакта
+function incrementUnreadCount(contactId) {
+    const currentCount = unreadMessages[contactId] || 0;
+    unreadMessages[contactId] = currentCount + 1;
+    updateContactUnreadIndicator(contactId, currentCount + 1);
+}
+
 // === ФУНКЦИИ ОТСЛЕЖИВАНИЯ АКТИВНОСТИ И СТАТУСОВ ===
 
 // Инициализация отслеживания активности пользователя
@@ -2073,10 +2357,15 @@ function showMainScreen() {
     loadContacts();
     loadMobileContacts();
     
+    // Загружаем количество непрочитанных сообщений
+    setTimeout(() => {
+        loadUnreadMessagesCount();
+    }, 500);
+    
     // Инициализируем отслеживание активности пользователя
     setTimeout(() => {
         initActivityTracking();
-        initWindowFocusTracking(); // Добавляем отслеживание фокуса окна
+        initWindowFocusTracking();
     }, 1000);
 }
 
