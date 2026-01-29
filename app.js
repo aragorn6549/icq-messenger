@@ -598,60 +598,109 @@ async function loadContacts() {
     if (!currentUser) return;
     try {
         console.log('Загрузка списка контактов...');
+        
+        // Используем правильный синтаксис для связи с профилями
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
                 contact_user_id,
-                profiles(id, display_name, uin, status, last_seen)
+                profiles!contacts_contact_user_id_fkey (
+                    id, display_name, uin, status, last_seen
+                )
             `)
             .eq('user_id', currentUser.id);
 
-        if (error) throw error;
-
-        const contactsList = document.getElementById('contacts-list');
-        contactsList.innerHTML = ''; // Очищаем список
-
-        if (!contacts || contacts.length === 0) {
-            contactsList.innerHTML = `
-                <div class="no-contacts">
-                    <div>👋 Начните общение!</div>
-                    <p>Добавьте контакты по UIN, чтобы начать переписку</p>
-                    <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
-                </div>
-            `;
+        if (error) {
+            // Если ошибка сохраняется, попробуем альтернативный синтаксис
+            console.log('Пробуем альтернативный запрос...');
+            const { data: contacts2, error: error2 } = await supabaseClient
+                .from('contacts')
+                .select(`
+                    id, contact_user_id,
+                    profiles:profiles!contact_user_id (
+                        id, display_name, uin, status, last_seen
+                    )
+                `)
+                .eq('user_id', currentUser.id);
+                
+            if (error2) throw error2;
+            
+            // Обрабатываем данные с альтернативным форматом
+            displayContacts(contacts2);
             return;
         }
 
-        // Сортировка: онлайн -> оффлайн -> по имени
-        contacts.sort((a, b) => {
-            if (a.profiles.status === 'online' && b.profiles.status !== 'online') return -1;
-            if (a.profiles.status !== 'online' && b.profiles.status === 'online') return 1;
-            return a.profiles.display_name.localeCompare(b.profiles.display_name);
-        });
-
-        contacts.forEach(item => {
-            const contact = item.profiles;
-            const contactItem = document.createElement('div');
-            contactItem.className = 'contact-item';
-            contactItem.onclick = () => selectContact(contact);
-
-            contactItem.innerHTML = `
-                <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
-                <div class="contact-info">
-                    <div class="contact-name">${contact.display_name}</div>
-                    <div class="contact-details">
-                        <span class="contact-uin">UIN: ${contact.uin}</span>
-                        <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
-                    </div>
-                </div>
-            `;
-            contactsList.appendChild(contactItem);
-        });
+        // Обрабатываем данные с первым форматом
+        displayContacts(contacts);
 
     } catch (error) {
         console.error('Ошибка загрузки контактов:', error);
         showToast('Ошибка загрузки контактов', 'error');
     }
+}
+
+function displayContacts(contactsData) {
+    const contactsList = document.getElementById('contacts-list');
+    contactsList.innerHTML = ''; // Очищаем список
+
+    if (!contactsData || contactsData.length === 0) {
+        contactsList.innerHTML = `
+            <div class="no-contacts">
+                <div>👋 Начните общение!</div>
+                <p>Добавьте контакты по UIN, чтобы начать переписку</p>
+                <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
+            </div>
+        `;
+        return;
+    }
+
+    // Подготавливаем данные для отображения
+    const contacts = contactsData.map(item => {
+        // Проверяем разные форматы ответа
+        if (item.profiles) {
+            return {
+                id: item.profiles.id,
+                display_name: item.profiles.display_name,
+                uin: item.profiles.uin,
+                status: item.profiles.status,
+                last_seen: item.profiles.last_seen
+            };
+        } else if (item.profiles) { // альтернативный формат
+            return {
+                id: item.profiles.id,
+                display_name: item.profiles.display_name,
+                uin: item.profiles.uin,
+                status: item.profiles.status,
+                last_seen: item.profiles.last_seen
+            };
+        }
+        return null;
+    }).filter(Boolean);
+
+    // Сортировка: онлайн -> оффлайн -> по имени
+    contacts.sort((a, b) => {
+        if (a.status === 'online' && b.status !== 'online') return -1;
+        if (a.status !== 'online' && b.status === 'online') return 1;
+        return a.display_name.localeCompare(b.display_name);
+    });
+
+    contacts.forEach(contact => {
+        const contactItem = document.createElement('div');
+        contactItem.className = 'contact-item';
+        contactItem.onclick = () => selectContact(contact);
+
+        contactItem.innerHTML = `
+            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div class="contact-info">
+                <div class="contact-name">${contact.display_name}</div>
+                <div class="contact-details">
+                    <span class="contact-uin">UIN: ${contact.uin}</span>
+                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                </div>
+            </div>
+        `;
+        contactsList.appendChild(contactItem);
+    });
 }
 
 function selectContact(contact) {
