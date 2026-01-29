@@ -17,6 +17,29 @@ function initSupabase() {
     console.log('Supabase инициализирован.');
 }
 
+// Функция для обновления мобильной шапки контакта
+function updateMobileContactHeader(contact) {
+    if (!contact) return;
+    
+    const avatar = document.getElementById('mobile-chat-avatar');
+    const name = document.getElementById('mobile-chat-title');
+    const uin = document.getElementById('mobile-chat-uin');
+    
+    if (avatar) avatar.textContent = contact.display_name.charAt(0).toUpperCase();
+    if (name) name.textContent = contact.display_name;
+    if (uin) uin.textContent = `UIN: ${contact.uin}`;
+    
+    // Показываем блок с информацией
+    const contactInfo = document.getElementById('mobile-contact-info');
+    if (contactInfo) contactInfo.style.display = 'flex';
+}
+
+// Функция для сброса мобильной шапки
+function resetMobileHeader() {
+    const contactInfo = document.getElementById('mobile-contact-info');
+    if (contactInfo) contactInfo.style.display = 'none';
+}
+
 // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 function escapeHtml(unsafe) {
     if (typeof unsafe !== 'string') return '';
@@ -277,32 +300,32 @@ async function register() {
 async function logout() {
     try {
         showLoading('Выход из системы...');
-        
+
         const { error } = await supabaseClient.auth.signOut();
         hideLoading();
-        
+
         if (error) {
             console.error('Ошибка выхода:', error);
             showToast('Ошибка при выходе', 'error');
         } else {
             console.log('Выход выполнен успешно');
-            // Обновляем статус на offline ТОЛЬКО ПОСЛЕ успешного выхода
+            // Обновляем статус на offline
             if (currentUser) {
                 await updateUserStatus('offline');
             }
             
+            // Очищаем мобильную шапку
+            resetMobileHeader();
+            
             // Остальная логика очистки
             currentUser = null;
             selectedContact = null;
-            
             if (messagesSubscription) {
                 supabaseClient.removeChannel(messagesSubscription);
             }
-            
             if (globalMessagesSubscription) {
                 supabaseClient.removeChannel(globalMessagesSubscription);
             }
-            
             showAuthScreen();
         }
     } catch (error) {
@@ -731,40 +754,44 @@ function displayContacts(contactsData) {
     });
 }
 
+
 function selectContact(contact) {
     selectedContact = contact;
     console.log('Выбран контакт:', contact.display_name);
-    
+
     // Обновляем UI чата
     document.getElementById('chat-title').textContent = contact.display_name;
     document.getElementById('chat-uin').textContent = `UIN: ${contact.uin}`;
     document.getElementById('chat-status').className = `chat-contact-status status-${contact.status}`;
     document.getElementById('chat-status').textContent = getStatusEmoji(contact.status);
-    
+
     const avatar = document.getElementById('chat-avatar');
     avatar.textContent = contact.display_name.charAt(0).toUpperCase();
     avatar.style.display = 'flex';
     document.getElementById('chat-details').style.display = 'flex';
-    
+
+    // Обновляем мобильную шапку
+    if (window.innerWidth <= 768) {
+        updateMobileContactHeader(contact);
+    }
+
     // Скрываем приветственное сообщение
     document.getElementById('welcome-message').style.display = 'none';
-    
+
     // На мобильных скрываем меню
     if (window.innerWidth <= 768) {
         hideMobileMenu();
     }
-    
+
     // Активируем поле ввода
     const messageInput = document.getElementById('message-input');
     messageInput.disabled = false;
     messageInput.placeholder = 'Введите сообщение...';
     document.getElementById('send-btn').disabled = false;
-    
+
     // Загружаем сообщения и подписываемся на новые
     loadMessages();
     subscribeToMessages();
-    
-    // Отмечаем сообщения как прочитанные
     markMessagesAsRead(contact.id);
 }
 
@@ -1456,6 +1483,12 @@ function showMainScreen() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
+    
+    // Сбрасываем мобильную шапку
+    if (window.innerWidth <= 768) {
+        resetMobileHeader();
+    }
+    
     loadContacts();
 }
 
