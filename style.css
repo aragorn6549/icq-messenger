@@ -960,22 +960,24 @@ body {
 
 /* ===== МОБИЛЬНАЯ ШАПКА ===== */
 .mobile-header {
-    display: none;
-    background: var(--card-bg);
-    backdrop-filter: blur(10px);
-    padding: 10px 15px;
+     display: none;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
+    height: 60px;
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 0 15px;
+    align-items: center;
 }
 
 .menu-toggle {
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 28px;
     width: 40px;
     height: 40px;
     display: flex;
@@ -984,6 +986,8 @@ body {
     cursor: pointer;
     color: var(--primary-color);
     z-index: 1001;
+    padding: 0;
+    margin: 0;
 }
 
 .mobile-header-center {
@@ -998,16 +1002,18 @@ body {
     color: var(--primary-color);
 }
 
+/* Блок с информацией о контакте - сдвинут вправо */
 .mobile-contact-info {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
+    margin-left: auto; /* Это сдвигает блок вправо */
+    padding-right: 10px;
 }
 
 .mobile-contact-avatar {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     display: flex;
@@ -1015,12 +1021,14 @@ body {
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 16px;
 }
 
 .mobile-contact-name {
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 14px;
+    color: var(--text-color);
+    text-align: right;
 }
 
 .mobile-contact-status {
@@ -1028,8 +1036,28 @@ body {
     color: var(--text-light);
 }
 
+.mobile-contact-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Выравнивание по правому краю */
+}
+
+.mobile-contact-uin {
+    font-size: 11px;
+    color: var(--text-light);
+    text-align: right;
+}
+
 .mobile-header-right {
     width: 40px;
+}
+
+/* Скрываем ненужные элементы */
+.mobile-header-center,
+.mobile-header-right,
+#mobile-title,
+.mobile-contact-status {
+    display: none !important;
 }
 
 /* ===== МОБИЛЬНОЕ МЕНЮ ===== */
@@ -1068,48 +1096,14 @@ body {
     color: var(--primary-color);
 }
 
-/* ===== ОСНОВНОЙ КОНТЕНТ НА ТЕЛЕФОНЕ ===== */
-@media (max-width: 768px) {
-    .desktop-header {
+/* ===== ОТОБРАЖЕНИЕ НА МОБИЛЬНЫХ ===== */
+@media (min-width: 769px) {
+    .mobile-header {
         display: none !important;
     }
     
-    .mobile-header {
+    .desktop-header {
         display: flex !important;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    .container {
-        padding: 0;
-        padding-top: 60px; /* Место для шапки */
-    }
-    
-    .sidebar {
-        display: none; /* Прячем старый список контактов */
-    }
-    
-    .chat-area {
-        height: calc(100vh - 60px);
-        border-radius: 0;
-    }
-    
-    .messages-container {
-        height: calc(100vh - 120px);
-    }
-    
-    /* Убираем приветственное сообщение на телефоне */
-    .welcome-message {
-        padding: 20px;
-        text-align: center;
-    }
-    
-    .welcome-message h3 {
-        font-size: 1.3rem;
-    }
-    
-    .welcome-icon {
-        font-size: 3rem;
     }
 }
 
@@ -1314,6 +1308,8 @@ body {
     align-items: center;
     gap: 15px;
 }
+
+
 
 .mobile-user-avatar {
     width: 60px;
