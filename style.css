@@ -1446,3 +1446,18 @@ body {
 .mobile-sidebar.show {
     left: 0;
 }
+
+/* СИЛЬНЫЕ СТИЛИ ДЛЯ ИСПРАВЛЕНИЯ ПРОБЛЕМ */
+.mobile-header.menu-open {
+    transform: translateX(280px) !important;
+    position: fixed !important;
+    width: 100% !important;
+}
+
+.menu-toggle {
+    z-index: 10000 !important;
+}
+
+.mobile-sidebar {
+    z-index: 9999 !important;
+}
