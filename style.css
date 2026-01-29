@@ -295,6 +295,7 @@ body {
 .main-layout {
     display: flex;
     gap: var(--spacing-md);
+    width: 100%;
     height: calc(100vh - 140px); /* Вычитаем высоту header */
 }
 
@@ -307,11 +308,8 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: var(--card-shadow);
-    transition: transform 0.3s ease, opacity 0.3s ease;
-    position: relative;
-    z-index: 10;
-    opacity: 1;
-    transform: translateX(0);
+    flex-shrink: 0; /* Не даем сжиматься */
+    overflow: hidden;
 }
 
 .sidebar.hidden-mobile {
@@ -483,6 +481,7 @@ body {
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
     overflow: hidden;
+    min-width: 0; /* Важно для корректного flexbox */
 }
 
 .chat-header.mobile-header {
@@ -1516,7 +1515,7 @@ body {
     visibility: visible;
 }
 
-/* ===== ЗАГОЛОВОК ЧАТА ===== */
+/* Стили для заголовка чата (только для компьютера) */
 .chat-header {
     padding: var(--spacing-md) var(--spacing-lg);
     background: rgba(248, 250, 252, 0.9);
@@ -1524,6 +1523,7 @@ body {
     display: flex;
     align-items: center;
 }
+
 .chat-contact-info {
     display: flex;
     align-items: center;
@@ -1566,36 +1566,53 @@ body {
     white-space: nowrap;
 }
 
-/* ===== ПРАВИЛА ДЛЯ ТЕЛЕФОНА ===== */
+/* На мобильных скрываем компьютерный заголовок и показываем мобильный */
 @media (max-width: 768px) {
+    .main-layout {
+        flex-direction: column;
+        height: calc(100vh - 120px);
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: 300px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        display: none; /* По умолчанию скрыт на мобильных */
+    }
+    
+    .sidebar.show {
+        transform: translateY(0);
+        display: flex;
+    }
+    
+    .chat-area {
+        height: 100%;
+    }
+    
+    .chat-header {
+        display: none; /* Скрываем компьютерный заголовок */
+    }
+    
+    /* Показываем мобильную шапку */
     .mobile-header {
-        display: flex !important; /* Показываем мобильную шапку */
-    }
-    
-    .desktop-header {
-        display: none !important; /* Скрываем компьютерную шапку */
-    }
-    
-    .menu-toggle {
-        display: flex !important; /* Показываем кнопку меню */
-    }
-    
-    .chat-header.mobile-header {
         display: flex !important;
     }
 }
 
-/* ===== ПРАВИЛА ДЛЯ КОМПЬЮТЕРА ===== */
+/* Убираем мобильный заголовок на компьютере */
 @media (min-width: 769px) {
-    .mobile-header {
-        display: none !important; /* Скрываем мобильную шапку */
+    .chat-header.mobile-header {
+        display: none !important;
     }
     
-    .desktop-header {
-        display: flex !important; /* Показываем компьютерную шапку */
-    }
-    
-    .menu-toggle {
-        display: none !important; /* Скрываем кнопку меню */
+    .chat-header {
+        display: flex !important;
     }
 }
