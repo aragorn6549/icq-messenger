@@ -1045,6 +1045,14 @@ async function sendMessage() {
 function addMessageToDisplay(message, isSent) {
     const container = document.getElementById('messages-container');
     if (!container) return;
+
+    // Проверяем, видит ли пользователь последние сообщения
+    const isScrolledToBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    
+    // Если сообщение от другого пользователя и мы не внизу чата, показываем индикатор
+    if (!isSent && !isScrolledToBottom) {
+        showNewMessagesIndicator();
+    }
     
     // Убираем сообщение "нет сообщений", если оно есть
     const noMessages = container.querySelector('.no-messages');
@@ -1997,6 +2005,39 @@ function initWindowFocusTracking() {
             isTabActive = true;
         }
     });
+}
+
+// Функция для скролла к новым сообщениям
+function scrollToNewMessages() {
+    const container = document.getElementById('messages-container');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+        hideNewMessagesIndicator();
+    }
+}
+
+// Функция для показа индикатора новых сообщений
+function showNewMessagesIndicator(count = 1) {
+    const indicator = document.getElementById('new-messages-indicator');
+    const countElement = document.getElementById('new-messages-count');
+    
+    if (indicator && countElement) {
+        countElement.textContent = count;
+        indicator.classList.add('show');
+        
+        // Автоматически скрываем через 10 секунд
+        setTimeout(() => {
+            hideNewMessagesIndicator();
+        }, 10000);
+    }
+}
+
+// Функция для скрытия индикатора новых сообщений
+function hideNewMessagesIndicator() {
+    const indicator = document.getElementById('new-messages-indicator');
+    if (indicator) {
+        indicator.classList.remove('show');
+    }
 }
 
 function showMainScreen() {
