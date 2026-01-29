@@ -501,10 +501,13 @@ async function addContact() {
 
 async function searchUsers(searchTerm) {
     try {
+        // Убираем опасные символы из поиска
+        const safeTerm = searchTerm.replace(/[^a-zA-Z0-9а-яА-Я\s]/g, '');
+        
         const { data, error } = await supabaseClient
             .from('profiles')
             .select('id, display_name, uin, status')
-            .ilike('display_name', `%${searchTerm}%`) // ilike - регистронезависимый поиск
+            .ilike('display_name', `%${safeTerm}%`)
             .limit(10);
 
         if (error) throw error;
@@ -611,26 +614,12 @@ async function loadContacts() {
             .eq('user_id', currentUser.id);
 
         if (error) {
-            // Если ошибка сохраняется, попробуем альтернативный синтаксис
-            console.log('Пробуем альтернативный запрос...');
-            const { data: contacts2, error: error2 } = await supabaseClient
-                .from('contacts')
-                .select(`
-                    id, contact_id,
-                    profiles:profiles!contact_id (
-                        id, display_name, uin, status, last_seen
-                    )
-                `)
-                .eq('user_id', currentUser.id);
-                
-            if (error2) throw error2;
-            
-            // Обрабатываем данные с альтернативным форматом
-            displayContacts(contacts2);
+            console.error('Ошибка загрузки контактов:', error);
+            showToast('Ошибка загрузки контактов', 'error');
             return;
         }
 
-        // Обрабатываем данные с первым форматом
+        // Обрабатываем данные
         displayContacts(contacts);
 
     } catch (error) {
@@ -638,6 +627,7 @@ async function loadContacts() {
         showToast('Ошибка загрузки контактов', 'error');
     }
 }
+
 
 function displayContacts(contactsData) {
     const contactsList = document.getElementById('contacts-list');
@@ -904,22 +894,19 @@ function subscribeToMessages() {
 
 async function markMessagesAsRead(contactId) {
     if (!currentUser) return;
-     // Временно отключаем эту функцию
-/*/  console.log('Функция markMessagesAsRead временно отключена');
-    return; */
- 
-   try {
+    try {
         const { error } = await supabaseClient
             .from('messages')
             .update({ read: true })
-            .match({ sender_id: contactId, receiver_id: currentUser.id, read: false });
+            .eq('sender_id', contactId)
+            .eq('receiver_id', currentUser.id)
+            .eq('read', false);
 
         if (error) throw error;
         console.log('Сообщения помечены как прочитанные');
     } catch (error) {
         console.error('Ошибка при пометке сообщений как прочитанных:', error);
-    } 
-    
+    }
 }
 
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ИМЕНИ ===
