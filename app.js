@@ -1439,6 +1439,8 @@ function showAuthScreen() {
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('main-screen').style.display = 'none';
     document.getElementById('user-info').style.display = 'none';
+    document.querySelector('.mobile-header').style.display = 'none';
+    document.querySelector('.desktop-header').style.display = 'none';
 }
 
 function showMainScreen() {
@@ -1446,9 +1448,15 @@ function showMainScreen() {
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     
-    // Сбрасываем мобильную шапку
+    // НОВЫЙ КОД - определяем, какую шапку показывать:
     if (window.innerWidth <= 768) {
-        resetMobileHeader();
+        // Это телефон
+        document.querySelector('.mobile-header').style.display = 'flex';
+        document.querySelector('.desktop-header').style.display = 'none';
+    } else {
+        // Это компьютер
+        document.querySelector('.mobile-header').style.display = 'none';
+        document.querySelector('.desktop-header').style.display = 'flex';
     }
     
     loadContacts();
