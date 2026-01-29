@@ -1436,11 +1436,17 @@ function initEventListeners() {
 }
 
 function showAuthScreen() {
+    console.log('Показываем экран авторизации');
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('main-screen').style.display = 'none';
     document.getElementById('user-info').style.display = 'none';
-    document.querySelector('.mobile-header').style.display = 'none';
-    document.querySelector('.desktop-header').style.display = 'none';
+    
+    // Прячем шапки на экране авторизации
+    const mobileHeader = document.querySelector('.mobile-header');
+    const desktopHeader = document.querySelector('.desktop-header');
+    
+    if (mobileHeader) mobileHeader.style.display = 'none';
+    if (desktopHeader) desktopHeader.style.display = 'none';
 }
 
 function showMainScreen() {
@@ -1451,15 +1457,35 @@ function showMainScreen() {
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     
-    // Убираем старую логику с mobile/desktop header
+    // Показываем правильную шапку в зависимости от устройства
+    if (window.innerWidth <= 768) {
+        // Это телефон
+        const mobileHeader = document.querySelector('.mobile-header');
+        const desktopHeader = document.querySelector('.desktop-header');
+        
+        if (mobileHeader) {
+            mobileHeader.style.display = 'flex';
+        }
+        if (desktopHeader) {
+            desktopHeader.style.display = 'none';
+        }
+    } else {
+        // Это компьютер
+        const desktopHeader = document.querySelector('.desktop-header');
+        const mobileHeader = document.querySelector('.mobile-header');
+        
+        if (desktopHeader) {
+            desktopHeader.style.display = 'flex';
+        }
+        if (mobileHeader) {
+            mobileHeader.style.display = 'none';
+        }
+    }
     
     // Загружаем контакты
     loadContacts();
-    
-    // Загружаем контакты для мобильного меню
     loadMobileContacts();
 }
-
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
@@ -1491,8 +1517,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('beforeinstallprompt сработал');
         e.preventDefault();
         deferredPrompt = e;
-        document.getElementById('install-btn').style.display = 'inline-block';
-        document.getElementById('mobile-install-btn').style.display = 'inline-block';
+        const installBtn = document.getElementById('install-btn');
+        if (installBtn) installBtn.style.display = 'inline-block';
     });
     
     // Обработчик успешной установки PWA
@@ -1500,8 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('PWA успешно установлено');
         showToast('Приложение установлено!');
         deferredPrompt = null;
-        document.getElementById('install-btn').style.display = 'none';
-        document.getElementById('mobile-install-btn').style.display = 'none';
+        const installBtn = document.getElementById('install-btn');
+        if (installBtn) installBtn.style.display = 'none';
     });
 });
-
