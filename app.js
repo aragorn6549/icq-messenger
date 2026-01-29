@@ -1115,64 +1115,26 @@ function initNetworkStatus() {
 
 // Показываем мобильное меню
 function showMobileMenu() {
-    console.log("Открываем мобильное меню");
-    
-    // 1. Добавляем класс для анимации кнопки (перемещение вниз)
-    const menuButton = document.getElementById('menu-toggle');
-    if (menuButton) {
-        menuButton.classList.add('menu-open');
-    }
-    
-    // 2. Добавляем класс для сдвига шапки
-    const mobileHeader = document.querySelector('.mobile-header');
-    if (mobileHeader) {
-        mobileHeader.classList.add('menu-open');
-    }
-    
-    // 3. Показываем меню
     const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
-    const menuIcon = document.querySelector('.menu-icon');
-    const closeIcon = document.querySelector('.close-icon');
+    const menuToggle = document.getElementById('menu-toggle');
     
     if (sidebar) sidebar.classList.add('show');
     if (overlay) overlay.classList.add('show');
-    if (menuIcon) menuIcon.style.opacity = '0';
-    if (closeIcon) closeIcon.style.opacity = '1';
+    if (menuToggle) menuToggle.classList.add('active');
     
-    // 4. Обновляем информацию о пользователе
     updateMobileUserInfo();
-    
-    // 5. Загружаем контакты
-    setTimeout(loadMobileContacts, 100);
 }
 
 // Скрываем мобильное меню
 function hideMobileMenu() {
-    console.log("Закрываем мобильное меню");
-    
-    // 1. Убираем класс для анимации кнопки
-    const menuButton = document.getElementById('menu-toggle');
-    if (menuButton) {
-        menuButton.classList.remove('menu-open');
-    }
-    
-    // 2. Убираем класс для сдвига шапки
-    const mobileHeader = document.querySelector('.mobile-header');
-    if (mobileHeader) {
-        mobileHeader.classList.remove('menu-open');
-    }
-    
-    // 3. Скрываем меню
     const sidebar = document.querySelector('.mobile-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
-    const menuIcon = document.querySelector('.menu-icon');
-    const closeIcon = document.querySelector('.close-icon');
+    const menuToggle = document.getElementById('menu-toggle');
     
     if (sidebar) sidebar.classList.remove('show');
     if (overlay) overlay.classList.remove('show');
-    if (menuIcon) menuIcon.style.opacity = '1';
-    if (closeIcon) closeIcon.style.opacity = '0';
+    if (menuToggle) menuToggle.classList.remove('active');
 }
 
 // Переключаем мобильное меню
@@ -1359,26 +1321,26 @@ function changeMobileStatus(newStatus) {
     changeStatus(newStatus);
 }
 
-// === ИНИЦИАЛИЗАЦИЯ МОБИЛЬНОГО ИНТЕРФЕЙСА ===
+// Инициализация мобильного интерфейса
 function initMobileInterface() {
     const menuToggle = document.getElementById('menu-toggle');
     if (menuToggle) {
-        menuToggle.addEventListener('click', toggleMobileMenu);
+        menuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const sidebar = document.querySelector('.mobile-sidebar');
+            if (sidebar && sidebar.classList.contains('show')) {
+                hideMobileMenu();
+            } else {
+                showMobileMenu();
+            }
+        });
     }
     
     // Оверлей для закрытия меню
-    const overlay = document.querySelector('.sidebar-overlay');
-    if (overlay) {
-        overlay.addEventListener('click', hideMobileMenu);
-    }
-    
-    // Обработчики свайпа
-    document.addEventListener('touchstart', handleTouchStart, false);
-    document.addEventListener('touchmove', handleTouchMove, false);
-    document.addEventListener('touchend', handleTouchEnd, false);
-    
-    // Обновляем приветственное сообщение
-    updateWelcomeMessage();
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.addEventListener('click', hideMobileMenu);
+    document.body.appendChild(overlay);
 }
 
 // Функции свайпа
