@@ -834,7 +834,7 @@ function displayContacts(contactsData) {
 
         contactsList.appendChild(contactItem);
     });
-}
+
 // Удалена лишняя } и весь второй блок кода (строки 826-887)
 
 // ... (остальной код файла остается без изменений) ...
