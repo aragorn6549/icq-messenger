@@ -1444,30 +1444,23 @@ function showAuthScreen() {
 }
 
 function showMainScreen() {
+    console.log('Показываем главный экран');
+    
+    // Показываем основной экран
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     
-    // Показываем правильную шапку в зависимости от устройства
-    if (window.innerWidth <= 768) {
-        // Это телефон
-        const mobileHeader = document.querySelector('.mobile-header');
-        if (mobileHeader) mobileHeader.style.display = 'flex';
-        
-        const desktopHeader = document.querySelector('.desktop-header');
-        if (desktopHeader) desktopHeader.style.display = 'none';
-    } else {
-        // Это компьютер
-        const desktopHeader = document.querySelector('.desktop-header');
-        if (desktopHeader) desktopHeader.style.display = 'flex';
-        
-        const mobileHeader = document.querySelector('.mobile-header');
-        if (mobileHeader) mobileHeader.style.display = 'none';
-    }
+    // Убираем старую логику с mobile/desktop header
     
+    // Загружаем контакты
     loadContacts();
-
+    
+    // Загружаем контакты для мобильного меню
+    loadMobileContacts();
 }
+
+
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Приложение инициализируется...');
