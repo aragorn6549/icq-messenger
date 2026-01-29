@@ -12,7 +12,7 @@ let touchStartX = 0;
 function initSupabase() {
     const supabaseUrl = 'https://dcxdpieejeuhyeybfbff.supabase.co'; // ЗАМЕНИТЬ НА ВАШ РЕАЛЬНЫЙ URL
     const supabaseAnonKey = 'sb_publishable_1mKGAaO6CgUbkIObl7-O0A_YBoE8fxq'; // ЗАМЕНИТЬ НА ВАШ РЕАЛЬНЫЙ КЛЮЧ
-    const { createClient } = window.Supabase;
+    const { createClient } = window.supabase || window.Supabase;
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
     console.log('Supabase инициализирован.');
 }
