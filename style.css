@@ -494,28 +494,23 @@ body {
 }
 
 @media (max-width: 768px) {
-    .chat-header.mobile-header {
-        display: flex;
+    .header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
     }
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100vh;
-        z-index: 999;
-        opacity: 0;
-        transform: translateX(-100%);
-        width: 250px;
+    
+    .user-info-left, .user-info-right {
+        width: 100%;
+        justify-content: center;
     }
-    .sidebar.show {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    .main-layout {
-        height: auto;
-    }
+    
     .chat-area {
-        height: calc(100vh - 70px); /* Учитываем высоту мобильного хедера */
+        height: calc(100vh - 120px);
+    }
+    
+    .sidebar {
+        width: 280px;
     }
 }
 
