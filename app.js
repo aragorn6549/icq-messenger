@@ -594,16 +594,18 @@ async function confirmAddContact(contactUserId) {
 }
 
 
+// app.js - НАЙДИТЕ функцию loadContacts
 async function loadContacts() {
     if (!currentUser) return;
     try {
         console.log('Загрузка списка контактов...');
+        // *** ИЗМЕНЕНО: Уточнено имя связи для получения профиля контакта ***
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
                 contact_user_id,
-                profiles(id, display_name, uin, status, last_seen)
-            `)
+                profiles!contacts_contact_user_id_fkey(id, display_name, uin, status, last_seen)
+            `) // <-- Вот здесь изменение
             .eq('user_id', currentUser.id);
 
         if (error) throw error;
@@ -622,19 +624,21 @@ async function loadContacts() {
             return;
         }
 
+        // *** ИЗМЕНЕНО: Теперь обращаемся к профилю через правильное имя ***
         // Сортировка: онлайн -> оффлайн -> по имени
         contacts.sort((a, b) => {
-            if (a.profiles.status === 'online' && b.profiles.status !== 'online') return -1;
-            if (a.profiles.status !== 'online' && b.profiles.status === 'online') return 1;
-            return a.profiles.display_name.localeCompare(b.profiles.display_name);
+            // Используем a.profiles!contacts_contact_user_id_fkey вместо a.profiles
+            if (a.profiles!contacts_contact_user_id_fkey.status === 'online' && b.profiles!contacts_contact_user_id_fkey.status !== 'online') return -1;
+            if (a.profiles!contacts_contact_user_id_fkey.status !== 'online' && b.profiles!contacts_contact_user_id_fkey.status === 'online') return 1;
+            return a.profiles!contacts_contact_user_id_fkey.display_name.localeCompare(b.profiles!contacts_contact_user_id_fkey.display_name);
         });
 
         contacts.forEach(item => {
-            const contact = item.profiles;
+            // *** ИЗМЕНЕНО: Теперь обращаемся к профилю через правильное имя ***
+            const contact = item.profiles!contacts_contact_user_id_fkey; // <-- Вот здесь изменение
             const contactItem = document.createElement('div');
             contactItem.className = 'contact-item';
             contactItem.onclick = () => selectContact(contact);
-
             contactItem.innerHTML = `
                 <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
                 <div class="contact-info">
@@ -647,7 +651,6 @@ async function loadContacts() {
             `;
             contactsList.appendChild(contactItem);
         });
-
     } catch (error) {
         console.error('Ошибка загрузки контактов:', error);
         showToast('Ошибка загрузки контактов', 'error');
