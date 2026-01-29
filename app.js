@@ -7,6 +7,10 @@ let globalMessagesSubscription = null;
 let deferredPrompt = null;
 let isMobileMenuOpen = false;
 let touchStartX = 0;
+let userActivityTimeout = null;
+let lastActivityTime = Date.now();
+let networkStatus = 'online';
+let isTabActive = true;
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -314,6 +318,11 @@ async function logout() {
         
         showLoading('Выход из системы...');
 
+        // Устанавливаем статус "оффлайн" перед выходом
+        if (currentUser) {
+            await updateUserStatus('offline');
+        }
+
         const { error } = await supabaseClient.auth.signOut();
         hideLoading();
 
@@ -322,8 +331,11 @@ async function logout() {
             showToast('Ошибка при выходе', 'error');
         } else {
             console.log('Выход выполнен успешно');
-            if (currentUser) {
-                await updateUserStatus('offline');
+            
+            // Останавливаем отслеживание активности
+            if (userActivityTimeout) {
+                clearTimeout(userActivityTimeout);
+                userActivityTimeout = null;
             }
             
             resetMobileHeader();
@@ -436,18 +448,46 @@ async function createUserProfile(userId, displayName) {
     }
 }
 
+// Обновленная функция updateUserStatus
 async function updateUserStatus(newStatus) {
     if (!currentUser) return;
+    
+    // Не обновляем статус если уже такой же
+    if (currentUser.status === newStatus) return;
     
     try {
         const { error } = await supabaseClient
             .from('profiles')
-            .update({ status: newStatus, last_seen: new Date().toISOString() })
+            .update({ 
+                status: newStatus, 
+                last_seen: new Date().toISOString() 
+            })
             .eq('id', currentUser.id);
         
         if (error) throw error;
         
+        // Обновляем статус в текущем пользователе
+        currentUser.status = newStatus;
+        
         console.log('Статус пользователя обновлен на:', newStatus);
+        
+        // Обновляем отображение статуса
+        updateStatusDisplay(newStatus);
+        
+        // Обновляем селект статуса
+        const statusSelect = document.getElementById('status-select');
+        const mobileStatusSelect = document.getElementById('mobile-status-select');
+        if (statusSelect) statusSelect.value = newStatus;
+        if (mobileStatusSelect) mobileStatusSelect.value = newStatus;
+        
+        // Обновляем мобильное меню
+        updateMobileUserInfo();
+        
+        // Если выбран контакт и это мы сами, обновляем статус в чате
+        if (selectedContact && selectedContact.id === currentUser.id) {
+            updateMobileContactStatus(newStatus);
+        }
+        
     } catch (error) {
         console.error('Ошибка обновления статуса:', error);
     }
@@ -471,12 +511,14 @@ function updateStatusDisplay(status) {
 async function changeStatus(newStatus) {
     if (!currentUser) return;
     
+    // Сбрасываем время активности при ручном изменении статуса
+    lastActivityTime = Date.now();
+    
     await updateUserStatus(newStatus);
-    updateStatusDisplay(newStatus);
     showToast(`Статус изменен на: ${getStatusText(newStatus)}`);
     
     // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ
-    updateMobileUserInfo({ status: newStatus });
+    updateMobileUserInfo();
 }
 
 // === ФУНКЦИИ КОНТАКТОВ ===
@@ -1150,21 +1192,57 @@ function initServiceWorker() {
     }
 }
 
+// Обновленная функция initNetworkStatus
 function initNetworkStatus() {
-    window.addEventListener('online', () => {
+    window.addEventListener('online', async () => {
+        networkStatus = 'online';
         showToast('✅ Соединение восстановлено');
+        
         if (currentUser) {
-            updateUserStatus('online');
+            // Если пользователь был оффлайн из-за сети, возвращаем в онлайн
+            if (currentUser.status === 'offline') {
+                await updateUserStatus('online');
+                updateStatusDisplay('online');
+                
+                // Обновляем селект статуса
+                const statusSelect = document.getElementById('status-select');
+                const mobileStatusSelect = document.getElementById('mobile-status-select');
+                if (statusSelect) statusSelect.value = 'online';
+                if (mobileStatusSelect) mobileStatusSelect.value = 'online';
+                
+                // Обновляем мобильное меню
+                updateMobileUserInfo();
+            }
         }
     });
     
-    window.addEventListener('offline', () => {
+    window.addEventListener('offline', async () => {
+        networkStatus = 'offline';
         showToast('⚠️ Нет подключения к интернету');
+        
         if (currentUser) {
-            updateUserStatus('offline');
+            // Устанавливаем статус оффлайн при потере соединения
+            await updateUserStatus('offline');
+            updateStatusDisplay('offline');
+            
+            // Обновляем селект статуса
+            const statusSelect = document.getElementById('status-select');
+            const mobileStatusSelect = document.getElementById('mobile-status-select');
+            if (statusSelect) statusSelect.value = 'offline';
+            if (mobileStatusSelect) mobileStatusSelect.value = 'offline';
+            
+            // Обновляем мобильное меню
+            updateMobileUserInfo();
         }
     });
+    
+    // Проверяем текущий статус сети
+    if (!navigator.onLine) {
+        networkStatus = 'offline';
+        showToast('⚠️ Нет подключения к интернету');
+    }
 }
+
 
 // === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
 
@@ -1409,6 +1487,9 @@ function getStatusText(status) {
 
 // Изменение статуса из мобильного меню
 function changeMobileStatus(newStatus) {
+    // Сбрасываем время активности при ручном изменении статуса
+    lastActivityTime = Date.now();
+    
     // Сворачиваем мобильное меню при изменении статуса
     hideMobileMenu();
     changeStatus(newStatus);
@@ -1580,6 +1661,87 @@ function searchMobileContacts() {
     });
 }
 
+// === ФУНКЦИИ ОТСЛЕЖИВАНИЯ АКТИВНОСТИ И СТАТУСОВ ===
+
+// Инициализация отслеживания активности пользователя
+function initActivityTracking() {
+    if (!currentUser) return;
+    
+    console.log('Инициализация отслеживания активности');
+    
+    // События активности пользователя
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    activityEvents.forEach(event => {
+        document.addEventListener(event, () => {
+            lastActivityTime = Date.now();
+            
+            // Если статус был "отошел", возвращаем в "онлайн"
+            if (currentUser && currentUser.status === 'away' && isTabActive && networkStatus === 'online') {
+                updateUserStatus('online');
+                updateStatusDisplay('online');
+                
+                // Обновляем селект статуса
+                const statusSelect = document.getElementById('status-select');
+                const mobileStatusSelect = document.getElementById('mobile-status-select');
+                if (statusSelect) statusSelect.value = 'online';
+                if (mobileStatusSelect) mobileStatusSelect.value = 'online';
+            }
+        }, { passive: true });
+    });
+    
+    // Проверка активности каждую минуту
+    setInterval(checkUserActivity, 60000);
+    
+    // Отслеживание видимости вкладки
+    document.addEventListener('visibilitychange', () => {
+        isTabActive = !document.hidden;
+        
+        if (isTabActive) {
+            // Вкладка стала активной
+            lastActivityTime = Date.now();
+            if (networkStatus === 'online' && currentUser) {
+                updateUserStatus('online');
+                updateStatusDisplay('online');
+            }
+        } else {
+            // Вкладка стала неактивной
+            // Устанавливаем статус "отошел" через 5 минут неактивности
+            setTimeout(() => {
+                if (!isTabActive && currentUser && currentUser.status === 'online' && networkStatus === 'online') {
+                    updateUserStatus('away');
+                    updateStatusDisplay('away');
+                }
+            }, 300000); // 5 минут
+        }
+    });
+}
+
+// Проверка активности пользователя
+function checkUserActivity() {
+    if (!currentUser) return;
+    
+    const now = Date.now();
+    const inactiveTime = now - lastActivityTime;
+    
+    // Если пользователь неактивен более 5 минут и онлайн
+    if (inactiveTime > 300000 && // 5 минут
+        currentUser.status === 'online' &&
+        isTabActive &&
+        networkStatus === 'online') {
+        
+        updateUserStatus('away');
+        updateStatusDisplay('away');
+        
+        // Обновляем селект статуса
+        const statusSelect = document.getElementById('status-select');
+        const mobileStatusSelect = document.getElementById('mobile-status-select');
+        if (statusSelect) statusSelect.value = 'away';
+        if (mobileStatusSelect) mobileStatusSelect.value = 'away';
+    }
+}
+
+
 function showMainScreen() {
     console.log('Показываем главный экран');
     
@@ -1612,6 +1774,11 @@ function showMainScreen() {
     // Загружаем контакты
     loadContacts();
     loadMobileContacts();
+    
+    // Инициализируем отслеживание активности пользователя
+    setTimeout(() => {
+        initActivityTracking();
+    }, 1000);
 }
 
 // Инициализация приложения
@@ -1656,4 +1823,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const installBtn = document.getElementById('install-btn');
         if (installBtn) installBtn.style.display = 'none';
     });
+    
+    // Инициализация отслеживания активности (после загрузки профиля)
+    // Это будет вызвано после успешной авторизации
 });
