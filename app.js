@@ -742,23 +742,24 @@ async function loadContacts() {
     }
 }
 
+
+
 function displayContacts(contactsData) {
     const contactsList = document.getElementById('contacts-list');
     if (!contactsList) return;
-    
     contactsList.innerHTML = ''; // Очищаем список
-    
+
     if (!contactsData || contactsData.length === 0) {
         contactsList.innerHTML = `
-            <div class="no-contacts">
-                <div>👋 Начните общение!</div>
-                <p>Добавьте контакты по UIN, чтобы начать переписку</p>
-                <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
-            </div>
+             <div class="no-contacts">
+                 <div>👋 Начните общение!</div>
+                 <p>Добавьте контакты по UIN, чтобы начать переписку</p>
+                 <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
+             </div>
         `;
         return;
     }
-    
+
     // Подготавливаем данные для отображения
     const contacts = contactsData.map(item => {
         // Проверяем разные форматы ответа
@@ -766,7 +767,7 @@ function displayContacts(contactsData) {
             return {
                 id: item.profiles.id,
                 display_name: item.profiles.display_name,
-                uin: item.profiles.uin,
+                 uin: item.profiles.uin,
                 status: item.profiles.status,
                 last_seen: item.profiles.last_seen
             };
@@ -781,59 +782,62 @@ function displayContacts(contactsData) {
         }
         return null;
     }).filter(Boolean);
-    
+
     // Сортировка: есть непрочитанные -> онлайн -> оффлайн -> по имени
     contacts.sort((a, b) => {
         const aUnread = unreadMessages[a.id] || 0;
         const bUnread = unreadMessages[b.id] || 0;
-        
+
         if (aUnread > 0 && bUnread === 0) return -1;
         if (aUnread === 0 && bUnread > 0) return 1;
         if (a.status === 'online' && b.status !== 'online') return -1;
         if (a.status !== 'online' && b.status === 'online') return 1;
         return a.display_name.localeCompare(b.display_name);
     });
-    
+
     // Создаем элементы контактов
     contacts.forEach(contact => {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
         contactItem.setAttribute('data-contact-id', contact.id);
         contactItem.onclick = () => selectContact(contact);
-        
+
         // Получаем количество непрочитанных сообщений
         const unreadCount = unreadMessages[contact.id] || 0;
-        
+
         contactItem.innerHTML = `
-            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
-            <div class="contact-info">
-                <div class="contact-name">${contact.display_name}</div>
-                <div class="contact-details">
-                    <span class="contact-uin">UIN: ${contact.uin}</span>
-                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
-                </div>
-            </div>
+           <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+             <div class="contact-info">
+                 <div class="contact-name">${contact.display_name}</div>
+                 <div class="contact-details">
+                     <span class="contact-uin">UIN: ${contact.uin}</span>
+                     <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                 </div>
+             </div>
         `;
-        
+
         // Добавляем индикатор непрочитанных, если есть
         if (unreadCount > 0) {
             const indicator = document.createElement('div');
             indicator.className = 'unread-indicator unread-blinking';
             indicator.innerHTML = '✉️';
-            
-            if (unreadCount > 1) {
+
+             if (unreadCount > 1) {
                 const counter = document.createElement('span');
                 counter.className = 'unread-count';
                 counter.textContent = unreadCount > 99 ? '99+' : unreadCount;
                 indicator.appendChild(counter);
             }
-            
+
             contactItem.appendChild(indicator);
         }
-        
+
         contactsList.appendChild(contactItem);
     });
 }
+// Удалена лишняя } и весь второй блок кода (строки 826-887)
+
+// ... (остальной код файла остается без изменений) ...
     
     // Подготавливаем данные для отображения
     const contacts = contactsData.map(item => {
