@@ -889,6 +889,8 @@ function displayContacts(contactsData) {
         contactsList.appendChild(contactItem);
     });
 
+}
+}
 
 function selectContact(contact, isMobileMenu = false) {
     selectedContact = contact;
