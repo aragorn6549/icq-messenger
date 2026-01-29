@@ -1616,3 +1616,36 @@ body {
         display: flex !important;
     }
 }
+
+/* ===== ИНДИКАТОР СТАТУСА В МОБИЛЬНОЙ ШАПКЕ ===== */
+.mobile-contact-avatar-container {
+    position: relative;
+    margin-right: 12px;
+}
+
+.mobile-contact-status-badge {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--card-bg);
+}
+
+/* Цвета статусов для бейджа */
+.mobile-contact-status-badge.status-online { background-color: #4CAF50; }
+.mobile-contact-status-badge.status-away { background-color: #FF9800; }
+.mobile-contact-status-badge.status-dnd { background-color: #f44336; }
+.mobile-contact-status-badge.status-invisible { background-color: #9e9e9e; }
+.mobile-contact-status-badge.status-offline { background-color: #bdbdbd; }
+
+/* Эмодзи статуса (альтернатива цветным точкам) */
+.mobile-contact-status-badge::before {
+    content: '';
+    font-size: 10px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
