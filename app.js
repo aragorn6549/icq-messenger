@@ -931,6 +931,9 @@ function displayMessages(messages) {
         return;
     }
     
+    // Сортируем сообщения по времени
+    messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
     let lastDate = null;
     
     messages.forEach(message => {
@@ -962,6 +965,7 @@ function displayMessages(messages) {
         // Создаем элемент сообщения
         const messageElement = document.createElement('div');
         messageElement.className = `message ${isSent ? 'message-sent' : 'message-received'}`;
+        messageElement.id = `message-${message.id}`;
         
         const time = messageDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         
@@ -988,29 +992,150 @@ async function sendMessage() {
     if (!content) return;
     
     try {
-        showLoading('Отправка...');
+        // showLoading('Отправка...'); // Убираем загрузку для мгновенного отображения
         
-        const { error } = await supabaseClient
+        // Создаем временный объект сообщения для мгновенного отображения
+        const tempMessage = {
+            id: `temp_${Date.now()}`,
+            sender_id: currentUser.id,
+            receiver_id: selectedContact.id,
+            content: content,
+            created_at: new Date().toISOString(),
+            read: false,
+            temp: true // Флаг, что это временное сообщение
+        };
+        
+        // Очищаем поле ввода сразу
+        input.value = '';
+        
+        // Немедленно добавляем сообщение в чат
+        addMessageToDisplay(tempMessage, true);
+        
+        // Отправляем на сервер
+        const { data, error } = await supabaseClient
             .from('messages')
             .insert([{
                 sender_id: currentUser.id,
                 receiver_id: selectedContact.id,
                 content: content,
                 read: false
-            }]);
+            }])
+            .select(); // Добавляем select() чтобы получить созданное сообщение
         
-        if (error) throw error;
+        if (error) {
+            // Если ошибка, удаляем временное сообщение
+            removeTempMessage(tempMessage.id);
+            throw error;
+        }
         
-        input.value = '';
-        hideLoading();
+        // Заменяем временное сообщение на постоянное
+        if (data && data[0]) {
+            replaceTempMessage(tempMessage.id, data[0]);
+        }
         
-        // Сообщение появится в чате через подписку
-        // loadMessages(); // Не вызываем напрямую, подписка обновит UI
     } catch (error) {
-        hideLoading();
         console.error('Ошибка отправки сообщения:', error);
         showToast('Ошибка отправки сообщения', 'error');
+        // Восстанавливаем текст в поле ввода при ошибке
+        input.value = content;
     }
+}
+
+// Функция для добавления сообщения в отображение
+function addMessageToDisplay(message, isSent) {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    
+    // Убираем сообщение "нет сообщений", если оно есть
+    const noMessages = container.querySelector('.no-messages');
+    if (noMessages) noMessages.remove();
+    
+    const messageDate = new Date(message.created_at);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Определяем текст даты
+    let dateText = '';
+    if (messageDate.toDateString() === today.toDateString()) {
+        dateText = 'Сегодня';
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+        dateText = 'Вчера';
+    } else {
+        dateText = messageDate.toLocaleDateString('ru-RU');
+    }
+    
+    // Добавляем разделитель даты, если нужно
+    const lastDateElement = container.querySelector('.message-date:last-child');
+    if (!lastDateElement || lastDateElement.textContent !== dateText) {
+        const dateElement = document.createElement('div');
+        dateElement.className = 'message-date';
+        dateElement.textContent = dateText;
+        container.appendChild(dateElement);
+    }
+    
+    // Создаем элемент сообщения
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${isSent ? 'message-sent' : 'message-received'}`;
+    messageElement.id = `message-${message.id}`;
+    if (message.temp) {
+        messageElement.classList.add('message-temp');
+    }
+    
+    const time = messageDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    
+    messageElement.innerHTML = `
+        <div class="message-content">${escapeHtml(message.content)}</div>
+        <div class="message-time">${time} ${isSent ? (message.temp ? '⌛' : '✓') : ''}</div>
+    `;
+    
+    container.appendChild(messageElement);
+    
+    // Прокручиваем к последнему сообщению
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 50);
+}
+
+// Функция для удаления временного сообщения
+function removeTempMessage(tempId) {
+    const tempElement = document.getElementById(`message-${tempId}`);
+    if (tempElement) {
+        tempElement.remove();
+    }
+    
+    // Удаляем пустые даты
+    cleanupEmptyDates();
+}
+
+// Функция для замены временного сообщения на постоянное
+function replaceTempMessage(tempId, realMessage) {
+    const tempElement = document.getElementById(`message-${tempId}`);
+    if (!tempElement) return;
+    
+    // Обновляем элемент
+    tempElement.id = `message-${realMessage.id}`;
+    tempElement.classList.remove('message-temp');
+    
+    const timeElement = tempElement.querySelector('.message-time');
+    if (timeElement) {
+        const time = new Date(realMessage.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        timeElement.textContent = `${time} ✓`;
+    }
+}
+
+// Функция для очистки пустых дат
+function cleanupEmptyDates() {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    
+    const dateElements = container.querySelectorAll('.message-date');
+    dateElements.forEach(dateElement => {
+        const nextSibling = dateElement.nextElementSibling;
+        if (!nextSibling || !nextSibling.classList.contains('message')) {
+            dateElement.remove();
+        }
+    });
 }
 
 function subscribeToMessages() {
@@ -1033,30 +1158,112 @@ function subscribeToMessages() {
             async (payload) => {
                 console.log('Новое сообщение:', payload.new);
                 
-                // Обновляем список сообщений
-                await loadMessages();
-                
-                // Прокручиваем к последнему сообщению
-                setTimeout(() => {
-                    const container = document.getElementById('messages-container');
-                    container.scrollTop = container.scrollHeight;
-                }, 100);
-                
-                // Показываем уведомление, если сообщение от другого пользователя
-                if (payload.new.sender_id !== currentUser.id) {
-                    const contactName = selectedContact.display_name;
-                    const messageText = payload.new.content;
-                    
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification(`Сообщение от ${contactName}`, {
-                            body: messageText,
-                            icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png'
-                        });
-                    }
+                // Если это сообщение от нас самих, игнорируем (мы уже добавили его локально)
+                if (payload.new.sender_id === currentUser.id) {
+                    return;
                 }
+                
+                // Добавляем сообщение в чат
+                addMessageToDisplay(payload.new, false);
+                
+                // Отмечаем сообщение как прочитанное
+                await markMessagesAsRead(selectedContact.id);
+                
+                // Показываем уведомление, если окно не в фокусе
+                showMessageNotification(payload.new);
             }
         )
         .subscribe();
+}
+
+function subscribeToMessages() {
+    if (messagesSubscription) {
+        supabaseClient.removeChannel(messagesSubscription);
+    }
+    
+    if (!selectedContact || !currentUser) return;
+    
+    messagesSubscription = supabaseClient
+        .channel(`private-chat-${Math.min(currentUser.id, selectedContact.id)}-${Math.max(currentUser.id, selectedContact.id)}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `or(sender_id.eq.${selectedContact.id},receiver_id.eq.${selectedContact.id})`
+            },
+            async (payload) => {
+                console.log('Новое сообщение:', payload.new);
+                
+                // Если это сообщение от нас самих, игнорируем (мы уже добавили его локально)
+                if (payload.new.sender_id === currentUser.id) {
+                    return;
+                }
+                
+                // Добавляем сообщение в чат
+                addMessageToDisplay(payload.new, false);
+                
+                // Отмечаем сообщение как прочитанное
+                await markMessagesAsRead(selectedContact.id);
+                
+                // Показываем уведомление, если окно не в фокусе
+                showMessageNotification(payload.new);
+            }
+        )
+        .subscribe();
+}
+
+// Функция для показа уведомлений о сообщениях
+async function showMessageNotification(message) {
+    // Если окно активно и в фокусе - не показываем уведомление
+    if (document.hasFocus() && isTabActive) {
+        console.log('Окно активно, уведомление не нужно');
+        return;
+    }
+    
+    try {
+        // Получаем информацию об отправителе
+        const { data: sender } = await supabaseClient
+            .from('profiles')
+            .select('display_name')
+            .eq('id', message.sender_id)
+            .single();
+        
+        const senderName = sender?.display_name || 'Неизвестный';
+        const messageText = message.content.length > 50 
+            ? message.content.substring(0, 50) + '...' 
+            : message.content;
+        
+        // Показываем браузерное уведомление
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const notification = new Notification(`💬 ${senderName}`, {
+                body: messageText,
+                icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                tag: 'icq-message',
+                requireInteraction: false,
+                silent: false,
+                vibrate: [200, 100, 200]
+            });
+            
+            // При клике на уведомление активируем окно
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+            
+            // Автоматически закрываем через 5 секунд
+            setTimeout(() => {
+                notification.close();
+            }, 5000);
+        } else {
+            // Если уведомления не разрешены, показываем toast
+            showToast(`💬 Новое сообщение от ${senderName}`, 'info');
+        }
+    } catch (error) {
+        console.error('Ошибка при показе уведомления:', error);
+    }
 }
 
 async function markMessagesAsRead(contactId) {
@@ -1741,6 +1948,30 @@ function checkUserActivity() {
     }
 }
 
+// Отслеживаем фокус окна
+function initWindowFocusTracking() {
+    // События для отслеживания фокуса окна
+    window.addEventListener('focus', () => {
+        isTabActive = true;
+        console.log('Окно в фокусе');
+    });
+    
+    window.addEventListener('blur', () => {
+        isTabActive = false;
+        console.log('Окно потеряло фокус');
+    });
+    
+    // Для мобильных устройств - отслеживаем видимость страницы
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.log('Страница скрыта (мобильное устройство)');
+            isTabActive = false;
+        } else {
+            console.log('Страница видима (мобильное устройство)');
+            isTabActive = true;
+        }
+    });
+}
 
 function showMainScreen() {
     console.log('Показываем главный экран');
@@ -1778,6 +2009,7 @@ function showMainScreen() {
     // Инициализируем отслеживание активности пользователя
     setTimeout(() => {
         initActivityTracking();
+        initWindowFocusTracking(); // Добавляем отслеживание фокуса окна
     }, 1000);
 }
 
