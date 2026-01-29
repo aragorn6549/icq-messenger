@@ -67,23 +67,40 @@
 </header>
 
 <!-- Боковая панель с контактами (для мобильных) -->
+<!-- Боковая панель с контактами (для мобильных) -->
 <div class="mobile-sidebar">
-
+    <!-- ИНФОРМАЦИЯ О ТЕКУЩЕМ ПОЛЬЗОВАТЕЛЕ -->
     <div class="mobile-user-info">
-        <div class="mobile-user-avatar">
-            <span id="mobile-user-avatar-text">?</span>
+        <div class="mobile-user-top">
+            <div class="mobile-user-avatar">
+                <span id="mobile-user-avatar-text">?</span>
+            </div>
+            <div class="mobile-user-details">
+                <div class="mobile-user-name" id="mobile-user-name">Загрузка...</div>
+                <div class="mobile-user-uin" id="mobile-user-uin">UIN: ---</div>
+                <div class="mobile-user-status" id="mobile-user-status">⚪ Оффлайн</div>
+            </div>
         </div>
-        <div class="mobile-user-details">
-            <div class="mobile-user-name" id="mobile-user-name">Имя</div>
-            <div class="mobile-user-uin" id="mobile-user-uin">UIN: ---</div>
-            <div class="mobile-user-status" id="mobile-user-status">⚪ Оффлайн</div>
-        </div>
-        <div class="mobile-user-buttons">
-            <button class="mobile-user-btn" onclick="showEditNameModal()">✎</button>
-            <button class="mobile-user-btn logout" onclick="logout()">Выйти</button>
+        
+        <div class="mobile-user-bottom">
+            <!-- ВЫБОР СТАТУСА -->
+            <select id="mobile-status-select" class="mobile-status-select" onchange="changeMobileStatus(this.value)">
+                <option value="online">🟢 Онлайн</option>
+                <option value="away">🟡 Отошёл</option>
+                <option value="dnd">🔴 Не беспокоить</option>
+                <option value="invisible">⚫ Невидимка</option>
+                <option value="offline">⚪ Оффлайн</option>
+            </select>
+            
+            <!-- КНОПКИ -->
+            <div class="mobile-user-buttons">
+                <button class="mobile-user-btn" onclick="showEditNameModal()" title="Изменить имя">✎</button>
+                <button class="mobile-user-btn logout" onclick="logout()" title="Выйти">🚪</button>
+            </div>
         </div>
     </div>
     
+    <!-- САМО МЕНЮ С КОНТАКТАМИ -->
     <div class="mobile-sidebar-header">
         <h3>📇 Мои контакты</h3>
         <button class="add-contact-btn" onclick="showAddContact()">
@@ -95,6 +112,11 @@
     </div>
     <div id="mobile-contacts-list" class="contacts-list">
         <!-- Контакты будут здесь -->
+        <div class="no-contacts">
+            <div>👋 Начните общение!</div>
+            <p>Добавьте контакты по UIN</p>
+            <button onclick="showAddContact()" class="add-first-contact">Добавить контакт</button>
+        </div>
     </div>
 </div>
 
