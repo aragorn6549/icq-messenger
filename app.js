@@ -327,14 +327,20 @@ async function loadUserProfile() {
         document.getElementById('user-uin').textContent = `UIN: ${profile.uin}`;
         document.getElementById('user-display-name').textContent = profile.display_name;
         document.getElementById('user-email').textContent = currentUser.email;
+        
         // Устанавливаем статус в select
         const statusSelect = document.getElementById('status-select');
         if (statusSelect) {
             statusSelect.value = profile.status;
         }
         updateStatusDisplay(profile.status);
+        
         // Обновляем UIN в модальном окне
         document.getElementById('my-uin').textContent = profile.uin;
+        
+        // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ
+        updateMobileUserInfo();
+        
     } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
     }
@@ -410,6 +416,9 @@ async function changeStatus(newStatus) {
     await updateUserStatus(newStatus);
     updateStatusDisplay(newStatus);
     showToast(`Статус изменен на: ${newStatus}`);
+    
+    // ОБНОВЛЯЕМ МОБИЛЬНОЕ МЕНЮ
+    updateMobileUserInfo();
 }
 
 // === ФУНКЦИИ КОНТАКТОВ ===
@@ -1372,6 +1381,37 @@ function initMobileInterface() {
     
     // Обновляем приветственное сообщение для мобильных
     updateWelcomeMessage();
+}
+
+function updateMobileUserInfo() {
+    if (!currentUser) return;
+    
+    // Обновляем аватар и имя
+    const userAvatar = document.getElementById('mobile-user-avatar-text');
+    const userName = document.getElementById('mobile-user-name');
+    const userUin = document.getElementById('mobile-user-uin');
+    const userStatus = document.getElementById('mobile-user-status');
+    
+    if (userAvatar && userName && userUin && userStatus) {
+        // Берем первую букву имени или email
+        const displayName = currentUser.user_metadata?.display_name || 
+                           currentUser.email?.split('@')[0] || '?';
+        
+        userAvatar.textContent = displayName.charAt(0).toUpperCase();
+        userName.textContent = displayName;
+        
+        // Получаем UIN из основной шапки
+        const uinElement = document.getElementById('user-uin');
+        if (uinElement) {
+            userUin.textContent = uinElement.textContent;
+        }
+        
+        // Получаем статус из основной шапки
+        const statusElement = document.getElementById('user-status');
+        if (statusElement) {
+            userStatus.textContent = statusElement.textContent;
+        }
+    }
 }
     
 });
