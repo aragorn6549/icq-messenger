@@ -2068,6 +2068,7 @@ async function loadUnreadMessagesCount() {
         
         // Обновляем индикаторы у контактов
         updateContactUnreadIndicators();
+        updateTabTitle(); // Обновляем заголовок вкладки
         
     } catch (error) {
         console.error('Ошибка загрузки непрочитанных сообщений:', error);
@@ -2197,6 +2198,7 @@ function resetUnreadCount(contactId) {
     if (unreadMessages[contactId]) {
         delete unreadMessages[contactId];
         updateContactUnreadIndicator(contactId);
+        updateTabTitle(); // Добавляем обновление заголовка
     }
 }
 
@@ -2205,6 +2207,7 @@ function incrementUnreadCount(contactId) {
     const currentCount = unreadMessages[contactId] || 0;
     unreadMessages[contactId] = currentCount + 1;
     updateContactUnreadIndicator(contactId, currentCount + 1);
+    updateTabTitle(); // Добавляем обновление заголовка
 }
 
 // === ФУНКЦИИ ОТСЛЕЖИВАНИЯ АКТИВНОСТИ И СТАТУСОВ ===
@@ -2318,6 +2321,17 @@ function scrollToNewMessages() {
     if (container) {
         container.scrollTop = container.scrollHeight;
         hideNewMessagesIndicator();
+    }
+}
+
+// Функция для обновления заголовка вкладки с количеством непрочитанных
+function updateTabTitle() {
+    const totalUnread = Object.values(unreadMessages).reduce((sum, count) => sum + count, 0);
+    
+    if (totalUnread > 0) {
+        document.title = `(${totalUnread}) ICQ Messenger`;
+    } else {
+        document.title = 'ICQ Messenger';
     }
 }
 
