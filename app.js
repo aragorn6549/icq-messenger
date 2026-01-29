@@ -1349,10 +1349,36 @@ async function saveDisplayName() {
 }
 
 // === PWA И УВЕДОМЛЕНИЯ ===
-function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.log('Браузер не поддерживает уведомления');
+        return false;
     }
+    
+    if (Notification.permission === 'granted') {
+        console.log('Разрешение на уведомления уже получено');
+        return true;
+    }
+    
+    if (Notification.permission !== 'denied') {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                console.log('Разрешение на уведомления получено');
+                showToast('🔔 Уведомления включены');
+                return true;
+            } else {
+                console.log('Пользователь отказал в уведомлениях');
+                return false;
+            }
+        } catch (error) {
+            console.error('Ошибка запроса разрешения на уведомления:', error);
+            return false;
+        }
+    }
+    
+    console.log('Пользователь заблокировал уведомления');
+    return false;
 }
 
 async function installPWA() {
