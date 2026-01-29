@@ -840,7 +840,7 @@ function displayContacts(contactsData) {
 // ... (остальной код файла остается без изменений) ...
     
     // Подготавливаем данные для отображения
-    const contacts = contactsData.map(item => {
+ /*   const contacts = contactsData.map(item => {
         // Проверяем разные форматы ответа
         if (item.profiles) {
             return {
@@ -888,8 +888,8 @@ function displayContacts(contactsData) {
         
         contactsList.appendChild(contactItem);
     });
+*/
 
-}
 }
 
 function selectContact(contact, isMobileMenu = false) {
