@@ -1230,4 +1230,148 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // (Опционально) Автоматическая регистрация теста - закомментировать!
     // setTimeout(() => { register(); }, 500);
+
+    // === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
+
+function showMobileMenu() {
+    const sidebar = document.querySelector('.mobile-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    
+    sidebar.classList.add('show');
+    overlay.style.display = 'block';
+    menuIcon.style.display = 'none';
+    closeIcon.style.display = 'block';
+    
+    // Загружаем контакты в мобильное меню
+    loadMobileContacts();
+}
+
+function hideMobileMenu() {
+    const sidebar = document.querySelector('.mobile-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    
+    sidebar.classList.remove('show');
+    overlay.style.display = 'none';
+    menuIcon.style.display = 'block';
+    closeIcon.style.display = 'none';
+}
+
+function loadMobileContacts() {
+    if (!currentUser) return;
+    
+    // Используем ту же функцию загрузки контактов
+    loadContacts().then(() => {
+        // Копируем контакты из основного списка в мобильный
+        const contactsList = document.getElementById('contacts-list').innerHTML;
+        document.getElementById('mobile-contacts-list').innerHTML = contactsList;
+        
+        // Добавляем обработчики нажатий для мобильных контактов
+        const mobileContacts = document.querySelectorAll('#mobile-contacts-list .contact-item');
+        mobileContacts.forEach(contact => {
+            contact.onclick = function() {
+                const contactId = this.getAttribute('data-contact-id');
+                selectMobileContact(contactId);
+                hideMobileMenu(); // Закрываем меню после выбора
+            };
+        });
+    });
+}
+
+function selectMobileContact(contactId) {
+    // Находим контакт в списке
+    const contacts = document.querySelectorAll('#mobile-contacts-list .contact-item');
+    contacts.forEach(contact => {
+        if (contact.getAttribute('data-contact-id') === contactId) {
+            // Получаем информацию о контакте
+            const name = contact.querySelector('.contact-name').textContent;
+            const uin = contact.querySelector('.contact-uin').textContent.replace('UIN: ', '');
+            const status = contact.querySelector('.contact-status').className.replace('contact-status ', '');
+            
+            // Обновляем шапку телефона
+            updateMobileHeader(name, uin, status);
+            
+            // Выбираем контакт в основном чате
+            selectContact({ 
+                id: contactId, 
+                display_name: name, 
+                uin: uin, 
+                status: status 
+            });
+        }
+    });
+}
+
+function updateMobileHeader(name, uin, status) {
+    // Прячем название приложения
+    document.getElementById('mobile-title').style.display = 'none';
+    
+    // Показываем информацию о контакте
+    document.getElementById('mobile-contact-info').style.display = 'flex';
+    document.getElementById('mobile-chat-title').textContent = name;
+    document.getElementById('mobile-chat-avatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('mobile-chat-status').textContent = getStatusEmoji(status);
+}
+
+function resetMobileHeader() {
+    // Возвращаем название приложения
+    document.getElementById('mobile-title').style.display = 'block';
+    document.getElementById('mobile-contact-info').style.display = 'none';
+}
+
+// Обновляем функцию selectContact
+function selectContact(contact) {
+    selectedContact = contact;
+    console.log('Выбран контакт:', contact.display_name);
+
+    // Обновляем UI чата (старая функция)
+    document.getElementById('chat-title').textContent = contact.display_name;
+    document.getElementById('chat-uin').textContent = `UIN: ${contact.uin}`;
+    document.getElementById('chat-status').className = `chat-contact-status status-${contact.status}`;
+    document.getElementById('chat-status').textContent = getStatusEmoji(contact.status);
+
+    const avatar = document.getElementById('chat-avatar');
+    avatar.textContent = contact.display_name.charAt(0).toUpperCase();
+    avatar.style.display = 'flex';
+    document.getElementById('chat-details').style.display = 'flex';
+
+    // Обновляем мобильную шапку
+    if (window.innerWidth <= 768) {
+        updateMobileHeader(contact.display_name, contact.uin, contact.status);
+    }
+
+    // Скрываем приветственное сообщение
+    document.getElementById('welcome-message').style.display = 'none';
+
+    // Активируем поле ввода
+    const messageInput = document.getElementById('message-input');
+    messageInput.disabled = false;
+    messageInput.placeholder = 'Введите сообщение...';
+    document.getElementById('send-btn').disabled = false;
+
+    // Загружаем сообщения и подписываемся на новые
+    loadMessages();
+    subscribeToMessages();
+    markMessagesAsRead(contact.id);
+}
+
+// Обновляем функцию initMobileInterface
+function initMobileInterface() {
+    // Добавляем обработчик на кнопку меню
+    document.getElementById('menu-toggle').addEventListener('click', function() {
+        const sidebar = document.querySelector('.mobile-sidebar');
+        if (sidebar.classList.contains('show')) {
+            hideMobileMenu();
+        } else {
+            showMobileMenu();
+        }
+    });
+    
+    // Обновляем приветственное сообщение для мобильных
+    updateWelcomeMessage();
+}
+    
 });
