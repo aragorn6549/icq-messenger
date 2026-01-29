@@ -1467,7 +1467,7 @@ function showMainScreen() {
     
     loadContacts();
 
-
+}
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Приложение инициализируется...');
@@ -1511,4 +1511,4 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mobile-install-btn').style.display = 'none';
     });
 });
-});
+
