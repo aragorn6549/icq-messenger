@@ -35,22 +35,7 @@
     }
   ],
   
-  "screenshots": [
-    {
-      "src": "https://via.placeholder.com/540x720/667eea/ffffff?text=ICQ+Messenger",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Главный экран мессенджера"
-    },
-    {
-      "src": "https://via.placeholder.com/720x540/667eea/ffffff?text=ICQ+Messenger+Chat",
-      "sizes": "720x540",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Чат в мессенджере"
-    }
-  ],
+  "screenshots": [],
   
   "shortcuts": [
     {
