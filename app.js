@@ -309,6 +309,9 @@ async function register() {
 
 async function logout() {
     try {
+        // Сворачиваем мобильное меню
+        hideMobileMenu();
+        
         showLoading('Выход из системы...');
 
         const { error } = await supabaseClient.auth.signOut();
@@ -319,15 +322,12 @@ async function logout() {
             showToast('Ошибка при выходе', 'error');
         } else {
             console.log('Выход выполнен успешно');
-            // Обновляем статус на offline
             if (currentUser) {
                 await updateUserStatus('offline');
             }
             
-            // Очищаем мобильную шапку
             resetMobileHeader();
             
-            // Остальная логика очистки
             currentUser = null;
             selectedContact = null;
             if (messagesSubscription) {
@@ -1038,6 +1038,10 @@ async function markMessagesAsRead(contactId) {
 
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ИМЕНИ ===
 function showEditNameModal() {
+    // Сворачиваем мобильное меню
+    hideMobileMenu();
+    
+    // Показываем модальное окно
     document.getElementById('edit-name-modal').style.display = 'flex';
     document.getElementById('new-display-name').value = currentUser?.user_metadata?.display_name || currentUser?.email.split('@')[0] || '';
 }
@@ -1170,7 +1174,14 @@ function showMobileMenu() {
     const overlay = document.querySelector('.sidebar-overlay');
     const menuToggle = document.getElementById('menu-toggle');
     
-    if (sidebar) sidebar.classList.add('show');
+    if (sidebar) {
+        sidebar.style.display = 'flex';
+        // Ждем один кадр перед добавлением класса для анимации
+        setTimeout(() => {
+            sidebar.classList.add('show');
+        }, 10);
+    }
+    
     if (overlay) overlay.classList.add('show');
     if (menuToggle) menuToggle.classList.add('active');
     
@@ -1183,7 +1194,14 @@ function hideMobileMenu() {
     const overlay = document.querySelector('.sidebar-overlay');
     const menuToggle = document.getElementById('menu-toggle');
     
-    if (sidebar) sidebar.classList.remove('show');
+    if (sidebar) {
+        sidebar.classList.remove('show');
+        // Ждем окончания анимации перед полным скрытием
+        setTimeout(() => {
+            sidebar.style.display = 'none';
+        }, 300); // Должно совпадать с длительностью анимации в CSS
+    }
+    
     if (overlay) overlay.classList.remove('show');
     if (menuToggle) menuToggle.classList.remove('active');
 }
@@ -1391,6 +1409,8 @@ function getStatusText(status) {
 
 // Изменение статуса из мобильного меню
 function changeMobileStatus(newStatus) {
+    // Сворачиваем мобильное меню при изменении статуса
+    hideMobileMenu();
     changeStatus(newStatus);
 }
 
@@ -1516,6 +1536,20 @@ function initEventListeners() {
     });
 }
 
+function showAddContact() {
+    // Сворачиваем мобильное меню
+    hideMobileMenu();
+    
+    // Показываем модальное окно
+    document.getElementById('add-contact-modal').style.display = 'flex';
+    
+    // Фокусируемся на поле ввода
+    setTimeout(() => {
+        const uinInput = document.getElementById('uin-input');
+        if (uinInput) uinInput.focus();
+    }, 100);
+}
+
 function showAuthScreen() {
     console.log('Показываем экран авторизации');
     document.getElementById('auth-screen').style.display = 'flex';
@@ -1528,6 +1562,22 @@ function showAuthScreen() {
     
     if (mobileHeader) mobileHeader.style.display = 'none';
     if (desktopHeader) desktopHeader.style.display = 'none';
+}
+
+function searchMobileContacts() {
+    const searchTerm = document.getElementById('mobile-contacts-search').value.toLowerCase();
+    const contacts = document.querySelectorAll('#mobile-contacts-list .contact-item');
+    
+    contacts.forEach(contact => {
+        const contactName = contact.querySelector('.contact-name').textContent.toLowerCase();
+        const contactUin = contact.querySelector('.contact-uin').textContent.toLowerCase();
+        
+        if (contactName.includes(searchTerm) || contactUin.includes(searchTerm)) {
+            contact.style.display = 'flex';
+        } else {
+            contact.style.display = 'none';
+        }
+    });
 }
 
 function showMainScreen() {
