@@ -905,9 +905,9 @@ function subscribeToMessages() {
 async function markMessagesAsRead(contactId) {
     if (!currentUser) return;
      // Временно отключаем эту функцию
-    console.log('Функция markMessagesAsRead временно отключена');
-    return;
-   /* ЗАКОММЕНТИРОВАТЬ ВСЕ ЭТО:
+/*/  console.log('Функция markMessagesAsRead временно отключена');
+    return; */
+ 
    try {
         const { error } = await supabaseClient
             .from('messages')
@@ -919,7 +919,7 @@ async function markMessagesAsRead(contactId) {
     } catch (error) {
         console.error('Ошибка при пометке сообщений как прочитанных:', error);
     } 
-    */
+    
 }
 
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ИМЕНИ ===
