@@ -201,12 +201,12 @@ async function sendPendingMessages() {
 }
 
 // Добавим фоновую периодическую синхронизацию (поддерживается не всеми браузерами)
- self.addEventListener('periodicsync', event => {
-    if (event.tag === 'check-new-messages') {
-         console.log(`${APP_NAME}: Фоновая проверка новых сообщений`);
-         event.waitUntil(checkForNewMessages());
-   }
- });
+// self.addEventListener('periodicsync', event => {
+//     if (event.tag === 'check-new-messages') {
+//         console.log(`${APP_NAME}: Фоновая проверка новых сообщений`);
+//         event.waitUntil(checkForNewMessages());
+//     }
+// });
 
 // Заглушка для проверки новых сообщений
 async function checkForNewMessages() {
