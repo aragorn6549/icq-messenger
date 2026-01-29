@@ -314,3 +314,125 @@ function saveMessageToDB(db, message) {
         request.onerror = () => reject(request.error);
     });
 }
+
+// Обработка push-уведомлений
+self.addEventListener('push', event => {
+    console.log(`${APP_NAME}: Получено push-уведомление`);
+
+    let notificationData = {
+        title: 'ICQ Messenger',
+        body: 'Новое сообщение',
+        icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+        badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+        tag: 'icq-message',
+        data: { 
+            url: '/',
+            timestamp: new Date().toISOString()
+        },
+        vibrate: [200, 100, 200],
+        requireInteraction: true,
+        actions: [
+            {
+                action: 'open',
+                title: 'Открыть чат'
+            },
+            {
+                action: 'close',
+                title: 'Закрыть'
+            }
+        ]
+    };
+
+    if (event.data) {
+        try {
+            const data = event.data.json();
+            notificationData = {
+                title: data.title || 'ICQ Messenger',
+                body: data.body || 'Новое сообщение',
+                icon: data.icon || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                badge: data.badge || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                tag: data.tag || 'icq-message',
+                data: data.data || { url: '/', timestamp: new Date().toISOString() },
+                vibrate: [200, 100, 200],
+                requireInteraction: true,
+                actions: [
+                    {
+                        action: 'open',
+                        title: 'Открыть чат'
+                    },
+                    {
+                        action: 'close',
+                        title: 'Закрыть'
+                    }
+                ]
+            };
+        } catch (error) {
+            // Если данные не JSON, используем как текст
+            notificationData.body = event.data.text() || 'Новое сообщение';
+        }
+    }
+
+    event.waitUntil(
+        self.registration.showNotification(notificationData.title, notificationData)
+    );
+});
+
+// Обработка клика по уведомлению
+self.addEventListener('notificationclick', event => {
+    console.log(`${APP_NAME}: Клик по уведомлению:`, event.action);
+    
+    const notification = event.notification;
+    notification.close();
+
+    if (event.action === 'close') {
+        return;
+    }
+
+    // Основное действие - открыть приложение
+    event.waitUntil(
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then(windowClients => {
+            // Проверяем, есть ли уже открытое окно
+            for (const client of windowClients) {
+                if (client.url.includes('/') && 'focus' in client) {
+                    return client.focus().then(() => {
+                        // Отправляем сообщение об активации
+                        return client.postMessage({
+                            type: 'NOTIFICATION_CLICK',
+                            data: notification.data
+                        });
+                    });
+                }
+            }
+            
+            // Если нет открытых окон, открываем новое
+            if (clients.openWindow) {
+                return clients.openWindow('/');
+            }
+        })
+    );
+});
+
+// Обработка сообщений от клиента
+self.addEventListener('message', event => {
+    console.log(`${APP_NAME}: Сообщение от клиента:`, event.data);
+    
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+    
+    // Обработка запроса на показ уведомления
+    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+        const { title, body, icon } = event.data;
+        
+        self.registration.showNotification(title, {
+            body: body,
+            icon: icon || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+            badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+            tag: 'icq-message',
+            vibrate: [200, 100, 200]
+        });
+    }
+});
