@@ -1448,19 +1448,25 @@ function showMainScreen() {
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     
-    // НОВЫЙ КОД - определяем, какую шапку показывать:
+    // Показываем правильную шапку в зависимости от устройства
     if (window.innerWidth <= 768) {
         // Это телефон
-        document.querySelector('.mobile-header').style.display = 'flex';
-        document.querySelector('.desktop-header').style.display = 'none';
+        const mobileHeader = document.querySelector('.mobile-header');
+        if (mobileHeader) mobileHeader.style.display = 'flex';
+        
+        const desktopHeader = document.querySelector('.desktop-header');
+        if (desktopHeader) desktopHeader.style.display = 'none';
     } else {
         // Это компьютер
-        document.querySelector('.mobile-header').style.display = 'none';
-        document.querySelector('.desktop-header').style.display = 'flex';
+        const desktopHeader = document.querySelector('.desktop-header');
+        if (desktopHeader) desktopHeader.style.display = 'flex';
+        
+        const mobileHeader = document.querySelector('.mobile-header');
+        if (mobileHeader) mobileHeader.style.display = 'none';
     }
     
     loadContacts();
-}
+
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
