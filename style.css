@@ -1635,3 +1635,230 @@ body {
 .sidebar, .chat-area {
     transition: all 0.3s ease;
 }
+
+/* ===== ОБНОВЛЕННЫЙ МОБИЛЬНЫЙ ИНТЕРФЕЙС ===== */
+
+/* Стили для мобильного заголовка */
+.mobile-header {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--card-bg);
+    min-height: 70px;
+    position: relative;
+}
+
+/* Кнопка меню в левом углу */
+.menu-toggle {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    transition: all 0.3s;
+    z-index: 1002;
+}
+
+.menu-toggle:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.menu-icon, .close-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Контент заголовка чата */
+.chat-header-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.chat-contact-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.chat-contact-text {
+    flex: 1;
+    min-width: 0; /* Для корректного обрезания текста */
+}
+
+.chat-contact-text h3 {
+    font-size: 18px;
+    margin: 0;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-contact-details {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Аватар в заголовке чата */
+.chat-contact-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    display: none; /* Скрыт по умолчанию */
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+/* Обновленный приветственный экран */
+.welcome-message {
+    text-align: center;
+    padding: 40px 20px;
+    max-width: 100%;
+}
+
+.welcome-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.welcome-message h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.welcome-message p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+/* Стили для контейнера сообщений без выбранного контакта */
+.no-contact-selected .messages-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Анимация для кнопки меню */
+@keyframes rotateMenu {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(90deg); }
+}
+
+@keyframes rotateClose {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(180deg); }
+}
+
+.menu-toggle .menu-icon {
+    transition: transform 0.3s ease;
+}
+
+.menu-toggle.active .menu-icon {
+    transform: rotate(90deg);
+}
+
+.menu-toggle .close-icon {
+    transition: transform 0.3s ease;
+}
+
+.menu-toggle.active .close-icon {
+    transform: rotate(180deg);
+}
+
+/* Адаптивные стили */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 85%;
+        max-width: 320px;
+        transform: translateX(-100%);
+        box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+    }
+    
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    /* Скрываем стандартную кнопку назад на мобильных */
+    .back-to-contacts {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) {
+    /* На десктопе скрываем мобильную кнопку меню */
+    .menu-toggle {
+        display: none;
+    }
+    
+    .mobile-header {
+        display: none;
+    }
+}
+
+/* Плавные переходы */
+.sidebar, .sidebar-overlay {
+    transition: all 0.3s ease;
+}
+
+/* Стиль для активного контакта в списке */
+.contact-item.active {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-left: 4px solid var(--primary-color);
+}
+
+/* Индикатор непрочитанных сообщений в заголовке */
+.unread-header-badge {
+    background: var(--primary-color);
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-weight: 600;
+}
