@@ -1413,5 +1413,105 @@ function updateMobileUserInfo() {
         }
     }
 }
+
+// === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
+
+function showMobileMenu() {
+    // 1. Добавляем класс для анимации кнопки
+    const menuButton = document.getElementById('menu-toggle');
+    menuButton.classList.add('menu-open');
+    
+    // 2. Показываем меню
+    const sidebar = document.querySelector('.mobile-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    
+    sidebar.classList.add('show');
+    overlay.style.display = 'block';
+    menuIcon.style.display = 'none';
+    closeIcon.style.display = 'block';
+    
+    // 3. Сдвигаем шапку вправо
+    const mobileHeader = document.querySelector('.mobile-header-center');
+    mobileHeader.classList.add('shifted');
+    
+    // 4. Обновляем информацию о пользователе
+    updateMobileUserInfo();
+    
+    // 5. Загружаем контакты
+    loadMobileContacts();
+}
+
+function hideMobileMenu() {
+    // 1. Убираем класс для анимации кнопки
+    const menuButton = document.getElementById('menu-toggle');
+    menuButton.classList.remove('menu-open');
+    
+    // 2. Скрываем меню
+    const sidebar = document.querySelector('.mobile-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    
+    sidebar.classList.remove('show');
+    overlay.style.display = 'none';
+    menuIcon.style.display = 'block';
+    closeIcon.style.display = 'none';
+    
+    // 3. Возвращаем шапку на место
+    const mobileHeader = document.querySelector('.mobile-header-center');
+    mobileHeader.classList.remove('shifted');
+}
+
+// Функция для обновления информации о пользователе в мобильном меню
+function updateMobileUserInfo() {
+    if (!currentUser) return;
+    
+    try {
+        // Берем данные из основной шапки
+        const mainUin = document.getElementById('user-uin').textContent;
+        const mainName = document.getElementById('user-display-name').textContent;
+        const mainStatus = document.getElementById('status-select').value;
+        
+        // Обновляем мобильное меню
+        document.getElementById('mobile-user-avatar-text').textContent = mainName.charAt(0).toUpperCase();
+        document.getElementById('mobile-user-name').textContent = mainName;
+        document.getElementById('mobile-user-uin').textContent = mainUin;
+        document.getElementById('mobile-user-status').textContent = getStatusText(mainStatus);
+        
+        // Устанавливаем правильный статус в выпадающем списке
+        document.getElementById('mobile-status-select').value = mainStatus;
+        
+    } catch (error) {
+        console.error('Ошибка обновления мобильной информации:', error);
+    }
+}
+
+// Функция для получения текста статуса
+function getStatusText(status) {
+    const statusMap = {
+        'online': '🟢 Онлайн',
+        'away': '🟡 Отошёл',
+        'dnd': '🔴 Не беспокоить',
+        'invisible': '⚫ Невидимка',
+        'offline': '⚪ Оффлайн'
+    };
+    return statusMap[status] || '⚪ Оффлайн';
+}
+
+// Функция для изменения статуса из мобильного меню
+function changeMobileStatus(newStatus) {
+    changeStatus(newStatus);
+    
+    // Обновляем информацию в мобильном меню
+    updateMobileUserInfo();
+}
+
+
+
+
+
+
     
 });
