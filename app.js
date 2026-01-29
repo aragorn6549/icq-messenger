@@ -471,7 +471,7 @@ async function addContact() {
             .from('contacts')
             .select('*')
             .eq('user_id', currentUser.id)
-            .eq('contact_user_id', contactProfile.id)
+            .eq('contact_id', contactProfile.id)
             .single();
 
         if (!existingError && existingContact) {
@@ -483,7 +483,7 @@ async function addContact() {
         // Добавляем контакт
         const { error: insertError } = await supabaseClient
             .from('contacts')
-            .insert([{ user_id: currentUser.id, contact_user_id: contactProfile.id }]);
+            .insert([{ user_id: currentUser.id, contact_id: contactProfile.id }]);
 
         if (insertError) throw insertError;
 
@@ -580,7 +580,7 @@ async function confirmAddContact(contactUserId) {
         // Добавляем контакт
         const { error: insertError } = await supabaseClient
             .from('contacts')
-            .insert([{ user_id: currentUser.id, contact_user_id: contactProfile.id }]);
+            .insert([{ user_id: currentUser.id, contact_id: contactProfile.id }]);
 
         if (insertError) throw insertError;
 
