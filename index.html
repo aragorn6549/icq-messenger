@@ -15,32 +15,76 @@
 <body>
     <div class="container">
         <!-- Шапка -->
-        <header class="header">
-            <div class="header-left">
-                <h1>💬 ICQ Messenger</h1>
-                <button id="install-btn" class="install-btn" style="display:none;">📱 Установить</button>
-            </div>
-            <div id="user-info" style="display: none;">
-               <div class="user-info-left">
-                     <span id="user-uin" class="user-uin">UIN: ---</span>
-                     <span id="user-display-name" class="user-display-name"></span>
-                     <button id="edit-name-btn" class="edit-name-btn" onclick="showEditNameModal()">✎</button>
-                     <span id="user-email" class="user-email"></span>
-                     <span id="user-status" class="user-status status-offline"></span>
-                </div>
-                <div class="user-info-right">
-                    <select id="status-select" class="status-select" onchange="changeStatus(this.value)">
-                        <option value="online">🟢 Онлайн</option>
-                        <option value="away">🟡 Отошёл</option>
-                        <option value="dnd">🔴 Не беспокоить</option>
-                        <option value="invisible">⚫ Невидимка</option>
-                        <option value="offline">⚪ Оффлайн</option>
-                    </select>
-                    <button id="logout-btn" class="logout-btn">Выйти</button>
-                </div>
-            </div>
-        </header>
+        <!-- Шапка для компьютера -->
+<header class="header desktop-header">
+    <div class="header-left">
+        <h1>💬 ICQ Messenger</h1>
+        <button id="install-btn" class="install-btn" style="display:none;">📱 Установить</button>
+    </div>
+    <div id="user-info" style="display: none;">
+        <div class="user-info-left">
+            <span id="user-uin" class="user-uin">UIN: ---</span>
+            <span id="user-display-name" class="user-display-name"></span>
+            <button id="edit-name-btn" class="edit-name-btn" onclick="showEditNameModal()">✎</button>
+            <span id="user-email" class="user-email"></span>
+            <span id="user-status" class="user-status status-offline"></span>
+        </div>
+        <div class="user-info-right">
+            <select id="status-select" class="status-select" onchange="changeStatus(this.value)">
+                <option value="online">🟢 Онлайн</option>
+                <option value="away">🟡 Отошёл</option>
+                <option value="dnd">🔴 Не беспокоить</option>
+                <option value="invisible">⚫ Невидимка</option>
+                <option value="offline">⚪ Оффлайн</option>
+            </select>
+            <button id="logout-btn" class="logout-btn">Выйти</button>
+        </div>
+    </div>
+</header>
 
+<!-- Шапка для телефона -->
+<header class="header mobile-header" style="display: none;">
+    <button id="menu-toggle" class="menu-toggle">
+        <span class="menu-icon">☰</span>
+        <span class="close-icon" style="display:none;">✕</span>
+    </button>
+    
+    <div class="mobile-header-center">
+        <!-- Здесь будет название приложения или имя контакта -->
+        <h1 id="mobile-title">💬 ICQ Messenger</h1>
+        <div id="mobile-contact-info" style="display:none;">
+            <div class="mobile-contact-avatar" id="mobile-chat-avatar"></div>
+            <div class="mobile-contact-text">
+                <div class="mobile-contact-name" id="mobile-chat-title"></div>
+                <div class="mobile-contact-status" id="mobile-chat-status"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mobile-header-right">
+        <button id="mobile-install-btn" class="install-btn" style="display:none;">📱</button>
+    </div>
+</header>
+
+<!-- Боковая панель с контактами (для мобильных) -->
+<div class="mobile-sidebar">
+    <div class="mobile-sidebar-header">
+        <h3>📇 Мои контакты</h3>
+        <button class="add-contact-btn" onclick="showAddContact()">
+            <span>+</span> Добавить
+        </button>
+    </div>
+    <div class="contacts-search">
+        <input type="text" id="mobile-contacts-search" placeholder="Поиск контактов..." onkeyup="searchMobileContacts()">
+    </div>
+    <div id="mobile-contacts-list" class="contacts-list">
+        <!-- Контакты будут здесь -->
+    </div>
+</div>
+
+<!-- Затемнение фона когда открыты контакты -->
+<div class="sidebar-overlay" onclick="hideMobileMenu()"></div>
+        
         <!-- Экран авторизации -->
         <div id="auth-screen" class="screen">
             <div class="auth-container">
