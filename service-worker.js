@@ -7,6 +7,7 @@ const urlsToCache = [
     '/index.html',
     '/style.css',
     '/app.js',
+    '/manifest.json',
     'https://unpkg.com/@supabase/supabase-js@2',
     'https://img.icons8.com/color/96/000000/speech-bubble.png',
     'https://img.icons8.com/color/192/000000/speech-bubble.png',
@@ -16,7 +17,6 @@ const urlsToCache = [
 // Установка Service Worker
 self.addEventListener('install', event => {
     console.log(`${APP_NAME}: Service Worker устанавливается`);
-    
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
@@ -33,34 +33,9 @@ self.addEventListener('install', event => {
     );
 });
 
-self.addEventListener('message', event => {
-    console.log(`${APP_NAME}: Получено сообщение от клиента:`, event.data);
-    
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
-});
-
-// Фоновая синхронизация при восстановлении соединения
-self.addEventListener('sync', event => {
-    console.log(`${APP_NAME}: Синхронизация: ${event.tag}`);
-    
-    if (event.tag === 'send-messages') {
-        event.waitUntil(sendPendingMessages());
-    }
-});
-
-async function sendPendingMessages() {
-    console.log(`${APP_NAME}: Отправка отложенных сообщений`);
-    
-    // Здесь можно реализовать отправку сообщений, которые не удалось отправить
-    // Например, сохраняя их в IndexedDB при потере соединения
-}
-
 // Активация Service Worker
 self.addEventListener('activate', event => {
     console.log(`${APP_NAME}: Service Worker активирован`);
-    
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
@@ -85,66 +60,37 @@ self.addEventListener('fetch', event => {
     if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
         return;
     }
-    
-    // Для Supabase API используем сетевой запрос
-    if (event.request.url.includes('supabase.co')) {
-        event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    // Кэшируем успешные ответы от API
-                    if (response.ok) {
-                        const responseClone = response.clone();
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, responseClone);
-                        });
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    // Если сеть недоступна, пробуем кэш
-                    return caches.match(event.request);
-                })
-        );
-        return;
-    }
-    
-    // Для статических ресурсов: сначала кэш, потом сеть
+
     event.respondWith(
-        caches.match(event.request)
-            .then(cachedResponse => {
-                // Возвращаем кэшированный ответ, если он есть
-                if (cachedResponse) {
-                    // Обновляем кэш в фоне
-                    fetchAndCache(event.request);
-                    return cachedResponse;
+        fetch(event.request)
+            .then(response => {
+                // Проверяем, нужно ли кэшировать ответ
+                if (!response || response.status !== 200 || response.type !== 'basic') {
+                    return response;
                 }
-                
-                // Иначе загружаем из сети
-                return fetch(event.request)
+
+                // Клонируем ответ для помещения в кэш
+                const responseToCache = response.clone();
+
+                caches.open(CACHE_NAME)
+                    .then(cache => {
+                        cache.put(event.request, responseToCache);
+                    });
+
+                return response;
+            })
+            .catch(() => {
+                // Если сеть недоступна, пытаемся получить из кэша
+                return caches.match(event.request)
                     .then(response => {
-                        // Проверяем валидность ответа
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                        if (response) {
                             return response;
                         }
-                        
-                        // Клонируем ответ для кэширования
-                        const responseToCache = response.clone();
-                        
-                        caches.open(CACHE_NAME)
-                            .then(cache => {
-                                cache.put(event.request, responseToCache);
-                            });
-                        
-                        return response;
-                    })
-                    .catch(error => {
-                        console.log(`${APP_NAME}: Ошибка загрузки:`, error);
-                        
                         // Для страниц: показываем offline страницу
                         if (event.request.headers.get('accept').includes('text/html')) {
                             return caches.match('/');
                         }
-                        
+                        // Для других ресурсов: возвращаем ошибку
                         return new Response('Нет подключения к интернету', {
                             status: 503,
                             statusText: 'Service Unavailable',
@@ -157,40 +103,18 @@ self.addEventListener('fetch', event => {
     );
 });
 
-// Функция для обновления кэша в фоне
-function fetchAndCache(request) {
-    return fetch(request)
-        .then(response => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
-            }
-            
-            const responseToCache = response.clone();
-            
-            caches.open(CACHE_NAME)
-                .then(cache => {
-                    cache.put(request, responseToCache);
-                });
-            
-            return response;
-        })
-        .catch(() => {
-            // Игнорируем ошибки при фоновом обновлении
-        });
-}
-
 // Обработка push-уведомлений
-// Обновляем обработку push-уведомлений
 self.addEventListener('push', event => {
     console.log(`${APP_NAME}: Получено push-уведомление`);
-    
+
     let notificationData = {
         title: 'ICQ Messenger',
         body: 'Новое сообщение',
         icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
-        badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png'
+        badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+        data: { url: '/' }
     };
-    
+
     if (event.data) {
         try {
             const data = event.data.json();
@@ -206,7 +130,7 @@ self.addEventListener('push', event => {
             notificationData.body = event.data.text() || 'Новое сообщение';
         }
     }
-    
+
     event.waitUntil(
         self.registration.showNotification(notificationData.title, {
             body: notificationData.body,
@@ -229,70 +153,29 @@ self.addEventListener('push', event => {
     );
 });
 
-// Добавим фоновую периодическую синхронизацию
-self.addEventListener('periodicsync', event => {
-    if (event.tag === 'check-new-messages') {
-        console.log(`${APP_NAME}: Фоновая проверка новых сообщений`);
-        event.waitUntil(checkForNewMessages());
-    }
-});
-
-async function checkForNewMessages() {
-    // Здесь можно добавить логику проверки новых сообщений
-    // через API Supabase с использованием последнего известного времени
-    console.log(`${APP_NAME}: Проверка новых сообщений...`);
-    
-    // Пример: получаем последние сообщения
-    const lastCheckTime = await getLastCheckTime();
-    const now = new Date().toISOString();
-    
-    // Сохраняем время последней проверки
-    await setLastCheckTime(now);
-    
-    return Promise.resolve();
-}
-
-async function getLastCheckTime() {
-    const cache = await caches.open(CACHE_NAME);
-    const response = await cache.match('last-check-time');
-    if (response) {
-        return await response.text();
-    }
-    return new Date(0).toISOString(); // Начало эпохи
-}
-
-async function setLastCheckTime(time) {
-    const cache = await caches.open(CACHE_NAME);
-    const response = new Response(time);
-    await cache.put('last-check-time', response);
-}
-
 // Обработка клика по уведомлению
 self.addEventListener('notificationclick', event => {
-    console.log(`${APP_NAME}: Клик по уведомлению:`, event.action);
-    
-    event.notification.close();
-    
+    const notification = event.notification;
+    notification.close();
+
     if (event.action === 'close') {
-        return;
+        return; // Просто закрыть уведомление
     }
-    
-    const urlToOpen = event.notification.data.url || '/';
-    
+
+    const urlToOpen = notification.data?.url || '/';
+
     event.waitUntil(
         clients.matchAll({
             type: 'window',
             includeUncontrolled: true
-        })
-        .then(windowClients => {
-            // Проверяем, есть ли уже открытое окно
+        }).then(windowClients => {
+            // Проверяем, есть ли уже открытое окно с нужным URL
             for (const client of windowClients) {
                 if (client.url.includes(urlToOpen) && 'focus' in client) {
                     return client.focus();
                 }
             }
-            
-            // Открываем новое окно
+            // Если нет, открываем новое окно
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
             }
@@ -300,32 +183,59 @@ self.addEventListener('notificationclick', event => {
     );
 });
 
-// Фоновая синхронизация
+// Фоновая синхронизация при восстановлении соединения
 self.addEventListener('sync', event => {
     console.log(`${APP_NAME}: Фоновая синхронизация:`, event.tag);
-    
-    if (event.tag === 'sync-messages') {
-        event.waitUntil(syncMessages());
+    if (event.tag === 'send-messages') {
+        event.waitUntil(sendPendingMessages());
     }
 });
 
 // Функция синхронизации сообщений
-function syncMessages() {
-    // Здесь можно добавить логику синхронизации
-    // например, отправку отложенных сообщений
-    console.log(`${APP_NAME}: Синхронизация сообщений...`);
+async function sendPendingMessages() {
+    console.log(`${APP_NAME}: Отправка отложенных сообщений`);
+    // Здесь можно реализовать отправку сообщений, которые не удалось отправить
+    // Например, сохраняя их в IndexedDB при потере соединения
+    // Пока что просто возвращаем Promise.resolve()
     return Promise.resolve();
 }
 
-// Периодическая синхронизация (только для установленных PWA)
-self.addEventListener('periodicsync', event => {
-    if (event.tag === 'update-contacts') {
-        console.log(`${APP_NAME}: Периодическая синхронизация контактов`);
-        event.waitUntil(updateContacts());
+// Добавим фоновую периодическую синхронизацию (поддерживается не всеми браузерами)
+ self.addEventListener('periodicsync', event => {
+    if (event.tag === 'check-new-messages') {
+         console.log(`${APP_NAME}: Фоновая проверка новых сообщений`);
+         event.waitUntil(checkForNewMessages());
+   }
+ });
+
+// Заглушка для проверки новых сообщений
+async function checkForNewMessages() {
+    // Здесь можно добавить логику проверки новых сообщений
+    // через API Supabase с использованием последнего известного времени
+    console.log(`${APP_NAME}: Проверка новых сообщений...`);
+    // Пример: получаем последние сообщения
+    const lastCheckTime = await getLastCheckTime();
+    const now = new Date().toISOString();
+    // Сохраняем время последней проверки
+    await setLastCheckTime(now);
+    return Promise.resolve();
+}
+
+async function getLastCheckTime() {
+    // Реализация получения времени последней проверки из IndexedDB или другого хранилища
+    // Пока что возвращаем null
+    return null;
+}
+
+async function setLastCheckTime(time) {
+    // Реализация сохранения времени последней проверки
+    // Пока что ничего не делаем
+}
+
+// Обработка сообщений от клиента (например, SKIP_WAITING)
+self.addEventListener('message', event => {
+    console.log(`${APP_NAME}: Получено сообщение от клиента:`, event.data);
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
     }
 });
-
-function updateContacts() {
-    // Обновление списка контактов
-    return Promise.resolve();
-}
