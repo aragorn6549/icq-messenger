@@ -219,3 +219,98 @@ self.addEventListener('message', event => {
         self.skipWaiting();
     }
 });
+// Обработка оффлайн режима
+self.addEventListener('fetch', event => {
+    // Для сообщений - пробуем отправить при восстановлении соединения
+    if (event.request.url.includes('/rest/v1/messages') && event.request.method === 'POST') {
+        // Для отправки сообщений - используем стратегию "сначала сеть"
+        event.respondWith(
+            fetch(event.request)
+                .catch(() => {
+                    // Сохраняем сообщение в IndexedDB для отправки позже
+                    return saveMessageForLater(event.request);
+                })
+        );
+        return;
+    }
+    
+    // Для других запросов - стандартная стратегия
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => {
+                // Если есть в кэше и оффлайн
+                if (response && !navigator.onLine) {
+                    return response;
+                }
+                return fetch(event.request)
+                    .then(response => {
+                        // Кэшируем GET запросы
+                        if (event.request.method === 'GET' && response.status === 200) {
+                            const responseToCache = response.clone();
+                            caches.open(CACHE_NAME)
+                                .then(cache => {
+                                    cache.put(event.request, responseToCache);
+                                });
+                        }
+                        return response;
+                    })
+                    .catch(error => {
+                        // Если оффлайн и нет в кэше - показываем страницу оффлайн
+                        if (event.request.destination === 'document') {
+                            return caches.match('/offline.html');
+                        }
+                        throw error;
+                    });
+            })
+    );
+});
+
+// Функция для сохранения сообщения для последующей отправки
+async function saveMessageForLater(request) {
+    const messageData = await request.clone().json();
+    
+    // Сохраняем в IndexedDB
+    const db = await openMessageDB();
+    await saveMessageToDB(db, messageData);
+    
+    // Возвращаем фейковый ответ
+    return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Сообщение сохранено для отправки позже',
+        offline: true 
+    }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+    });
+}
+
+// Функции для работы с IndexedDB
+function openMessageDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('icq_messages', 1);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('pending_messages')) {
+                db.createObjectStore('pending_messages', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+    });
+}
+
+function saveMessageToDB(db, message) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['pending_messages'], 'readwrite');
+        const store = transaction.objectStore('pending_messages');
+        const request = store.add({
+            ...message,
+            timestamp: new Date().toISOString()
+        });
+        
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
