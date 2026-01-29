@@ -957,7 +957,6 @@ body {
 
 /* ===== МОБИЛЬНАЯ ШАПКА ===== */
 .mobile-header {
-     display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -1028,11 +1027,6 @@ body {
     text-align: right;
 }
 
-.mobile-contact-status {
-    font-size: 0.8rem;
-    color: var(--text-light);
-}
-
 .mobile-contact-text {
     display: flex;
     flex-direction: column;
@@ -1047,14 +1041,6 @@ body {
 
 .mobile-header-right {
     width: 40px;
-}
-
-/* Скрываем ненужные элементы */
-.mobile-header-center,
-.mobile-header-right,
-#mobile-title,
-.mobile-contact-status {
-    display: none !important;
 }
 
 /* ===== МОБИЛЬНОЕ МЕНЮ ===== */
@@ -1073,7 +1059,6 @@ body {
     flex-direction: column;
 }
 
-
 .mobile-sidebar.show {
     left: 0;
 }
@@ -1091,32 +1076,6 @@ body {
     margin: 0;
     font-size: 1.1rem;
     color: var(--primary-color);
-}
-
-/* ===== ОТОБРАЖЕНИЕ НА МОБИЛЬНЫХ ===== */
-@media (min-width: 769px) {
-    .mobile-header {
-        display: none !important;
-    }
-    
-    .desktop-header {
-        display: flex !important;
-    }
-}
-
-/* ===== ПЕРЕКЛЮЧЕНИЕ МЕЖДУ КОМПЬЮТЕРОМ И ТЕЛЕФОНОМ ===== */
-@media (min-width: 769px) {
-    .mobile-header {
-        display: none !important;
-    }
-    
-    .mobile-sidebar {
-        display: none !important;
-    }
-    
-    .desktop-header {
-        display: flex !important;
-    }
 }
 
 /* ===== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ ===== */
@@ -1314,8 +1273,6 @@ body {
     align-items: center;
     gap: 15px;
 }
-
-
 
 .mobile-user-avatar {
     width: 60px;
@@ -1607,4 +1564,38 @@ body {
 }
 .chat-contact-uin, .chat-contact-status {
     white-space: nowrap;
+}
+
+/* ===== ПРАВИЛА ДЛЯ ТЕЛЕФОНА ===== */
+@media (max-width: 768px) {
+    .mobile-header {
+        display: flex !important; /* Показываем мобильную шапку */
+    }
+    
+    .desktop-header {
+        display: none !important; /* Скрываем компьютерную шапку */
+    }
+    
+    .menu-toggle {
+        display: flex !important; /* Показываем кнопку меню */
+    }
+    
+    .chat-header.mobile-header {
+        display: flex !important;
+    }
+}
+
+/* ===== ПРАВИЛА ДЛЯ КОМПЬЮТЕРА ===== */
+@media (min-width: 769px) {
+    .mobile-header {
+        display: none !important; /* Скрываем мобильную шапку */
+    }
+    
+    .desktop-header {
+        display: flex !important; /* Показываем компьютерную шапку */
+    }
+    
+    .menu-toggle {
+        display: none !important; /* Скрываем кнопку меню */
+    }
 }
