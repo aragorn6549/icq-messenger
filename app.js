@@ -37,25 +37,32 @@ function initMobileInterface() {
     document.addEventListener('touchmove', handleTouchMove, false);
     document.addEventListener('touchend', handleTouchEnd, false);
     
-    // Показываем подсказку о свайпе на мобильных
-    if (window.innerWidth <= 768) {
-        setTimeout(() => {
-            showSwipeHint();
-        }, 3000);
-    }
+    // Обновляем приветственное сообщение для мобильных
+    updateWelcomeMessage();
 }
 
 function toggleMobileMenu() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
+    const menuToggle = document.getElementById('menu-toggle');
+    const menuIcon = menuToggle.querySelector('.menu-icon');
+    const closeIcon = menuToggle.querySelector('.close-icon');
     
     if (isMobileMenuOpen) {
+        // Закрываем меню
         sidebar.classList.remove('show');
         overlay.classList.remove('show');
+        menuToggle.classList.remove('active');
+        menuIcon.style.display = 'flex';
+        closeIcon.style.display = 'none';
         isMobileMenuOpen = false;
     } else {
+        // Открываем меню
         sidebar.classList.add('show');
         overlay.classList.add('show');
+        menuToggle.classList.add('active');
+        menuIcon.style.display = 'none';
+        closeIcon.style.display = 'flex';
         isMobileMenuOpen = true;
     }
 }
@@ -63,18 +70,30 @@ function toggleMobileMenu() {
 function showMobileMenu() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
+    const menuToggle = document.getElementById('menu-toggle');
+    const menuIcon = menuToggle.querySelector('.menu-icon');
+    const closeIcon = menuToggle.querySelector('.close-icon');
     
     sidebar.classList.add('show');
     overlay.classList.add('show');
+    menuToggle.classList.add('active');
+    menuIcon.style.display = 'none';
+    closeIcon.style.display = 'flex';
     isMobileMenuOpen = true;
 }
 
 function hideMobileMenu() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
+    const menuToggle = document.getElementById('menu-toggle');
+    const menuIcon = menuToggle.querySelector('.menu-icon');
+    const closeIcon = menuToggle.querySelector('.close-icon');
     
     sidebar.classList.remove('show');
     overlay.classList.remove('show');
+    menuToggle.classList.remove('active');
+    menuIcon.style.display = 'flex';
+    closeIcon.style.display = 'none';
     isMobileMenuOpen = false;
 }
 
@@ -138,7 +157,7 @@ function showSwipeHint() {
     }
 }
 
-// Обновляем функцию selectContact для мобильных
+// Обновляем функцию selectContact для нового мобильного интерфейса
 async function selectContact(contact) {
     if (!contact || !currentUser) return;
     
@@ -147,18 +166,19 @@ async function selectContact(contact) {
     selectedContact = contact;
     
     // Обновляем заголовок чата
-    document.getElementById('chat-header-content').innerHTML = `
-        <div class="chat-contact-info">
-            <div class="chat-contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
-            <div>
-                <h3>${contact.display_name}</h3>
-                <div class="chat-contact-details">
-                    <span class="chat-contact-uin">UIN: ${contact.uin}</span>
-                    <span class="chat-contact-status ${contact.status}">${getStatusText(contact.status)}</span>
-                </div>
-            </div>
-        </div>
-    `;
+    document.getElementById('chat-title').textContent = contact.display_name;
+    document.getElementById('chat-uin').textContent = `UIN: ${contact.uin}`;
+    document.getElementById('chat-status').textContent = getStatusText(contact.status);
+    document.getElementById('chat-status').className = `chat-contact-status ${contact.status}`;
+    
+    // Показываем аватар и детали
+    const avatar = document.getElementById('chat-avatar');
+    avatar.textContent = contact.display_name.charAt(0).toUpperCase();
+    avatar.style.display = 'flex';
+    document.getElementById('chat-details').style.display = 'flex';
+    
+    // Скрываем приветственное сообщение
+    document.getElementById('welcome-message').style.display = 'none';
     
     // На мобильных скрываем меню
     if (window.innerWidth <= 768) {
@@ -166,9 +186,11 @@ async function selectContact(contact) {
     }
     
     // Активируем поле ввода
-    document.getElementById('message-input').disabled = false;
+    const messageInput = document.getElementById('message-input');
+    messageInput.disabled = false;
+    messageInput.placeholder = 'Введите сообщение...';
     document.getElementById('send-btn').disabled = false;
-    document.getElementById('message-input').focus();
+    messageInput.focus();
     
     // Загружаем сообщения и подписываемся на новые
     await loadMessages();
@@ -545,61 +567,50 @@ function showChatOnly() {
     }
 }
 
+// Обновляем функцию для возврата к списку контактов
 function showContactsOnly() {
-    const sidebar = document.querySelector('.sidebar');
-    const chatArea = document.querySelector('.chat-area');
-    const backButton = document.getElementById('back-to-contacts');
+    // Сбрасываем выбранный контакт
+    selectedContact = null;
     
-    // На мобильных: показываем меню
-    if (window.innerWidth <= 768) {
+    // Обновляем заголовок чата
+    document.getElementById('chat-title').textContent = '💬 Добро пожаловать!';
+    document.getElementById('chat-avatar').style.display = 'none';
+    document.getElementById('chat-details').style.display = 'none';
+    
+    // Показываем приветственное сообщение
+    const welcomeMessage = document.getElementById('welcome-message');
+    welcomeMessage.style.display = 'block';
+    
+    // Деактивируем поле ввода
+    document.getElementById('message-input').disabled = true;
+    document.getElementById('message-input').placeholder = 'Выберите контакт для общения...';
+    document.getElementById('send-btn').disabled = true;
+    
+    // Очищаем контейнер сообщений
+    document.getElementById('messages-container').innerHTML = '';
+    document.getElementById('messages-container').appendChild(welcomeMessage);
+    
+    // На мобильных показываем меню
+    if (window.innerWidth <= 768 && !isMobileMenuOpen) {
         showMobileMenu();
-    } else {
-        // На десктопе: показываем контакты, уменьшаем чат
-        sidebar.classList.remove('hidden');
-        chatArea.classList.remove('expanded');
     }
-    
-    // Скрываем кнопку "Назад"
-    if (backButton) {
-        backButton.style.display = 'none';
+}
+
+// Обновляем функцию инициализации
+function updateWelcomeMessage() {
+    if (window.innerWidth <= 768) {
+        const welcomeMessage = document.getElementById('welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.querySelector('p').textContent = 'Нажмите на ☰ вверху слева, чтобы открыть контакты';
+        }
     }
 }
 
 function initBackToContactsButton() {
-    const backButton = document.getElementById('back-to-contacts');
-    if (backButton) {
-        backButton.addEventListener('click', () => {
-            showContactsOnly();
-            
-            // Сбрасываем выбранный контакт
-            selectedContact = null;
-            
-            // Скрываем поле ввода сообщений
-            document.getElementById('message-input').disabled = true;
-            document.getElementById('send-btn').disabled = true;
-            
-            // Показываем приветственное сообщение
-            document.getElementById('chat-header-content').innerHTML = `
-                <div class="chat-contact-info">
-                    <div class="chat-contact-avatar"></div>
-                    <div>
-                        <h3>Выберите контакт</h3>
-                        <div class="chat-contact-details">
-                            <span class="chat-contact-uin">UIN: ---</span>
-                            <span class="chat-contact-status"></span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('messages-container').innerHTML = `
-                <div class="welcome-message">
-                    <div class="welcome-icon">💬</div>
-                    <h3>ICQ Messenger</h3>
-                    <p>Выберите контакт из списка слева, чтобы начать переписку</p>
-                </div>
-            `;
-        });
+    // Убираем старую кнопку "назад", так как теперь используем меню
+    const oldButton = document.getElementById('back-to-contacts');
+    if (oldButton) {
+        oldButton.remove();
     }
 }
 
@@ -886,23 +897,26 @@ function showAuthScreen() {
     document.getElementById('register-error').textContent = '';
 }
 
+// Обновляем функцию отображения главного экрана
 function showMainScreen() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'block';
     document.getElementById('user-info').style.display = 'flex';
     
+    // Показываем начальное состояние (список контактов)
+    showContactsOnly();
+    
     loadContacts();
     trackOnlineStatus();
     
-    // Подписываемся на ВСЕ входящие сообщения для уведомлений
-    subscribeToAllMessages();
+    // Инициализируем глобальную подписку на сообщения
+    initGlobalMessagesSubscription();
     
     // Проверяем, нужно ли показывать кнопку установки PWA
     if (deferredPrompt) {
         document.getElementById('install-btn').style.display = 'block';
     }
 }
-
 // Новая функция: Подписка на все входящие сообщения
 function subscribeToAllMessages() {
     if (!currentUser) return;
@@ -1625,6 +1639,21 @@ async function loadContacts() {
             `;
             return;
         }
+// После загрузки контактов добавляем обработчики клика
+    setTimeout(() => {
+        document.querySelectorAll('.contact-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const userId = this.dataset.userId;
+                const contact = contactsMap[userId]; // Нужно сохранять контакты в глобальной переменной
+                if (contact) {
+                    selectContact(contact);
+                }
+            });
+        });
+    }, 100);
+}
+
+
         
         // Создаем мап для хранения уникальных контактов
         const uniqueContactsMap = new Map();
