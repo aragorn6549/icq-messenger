@@ -1661,3 +1661,91 @@ body {
     justify-content: center;
     border: none;
 }
+
+/* ===== ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ СТАТУСОВ ===== */
+
+/* Анимация для изменения статуса */
+@keyframes statusChange {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.status-online, .status-away, .status-dnd, .status-invisible, .status-offline {
+    transition: all 0.3s ease;
+}
+
+.status-online:hover, .status-away:hover, .status-dnd:hover, .status-invisible:hover, .status-offline:hover {
+    animation: statusChange 0.3s ease;
+}
+
+/* Индикатор сети в углу экрана */
+.network-indicator {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    z-index: 9999;
+    transition: all 0.3s ease;
+}
+
+.network-online {
+    background-color: #4CAF50;
+    box-shadow: 0 0 10px #4CAF50;
+}
+
+.network-offline {
+    background-color: #f44336;
+    box-shadow: 0 0 10px #f44336;
+}
+
+/* Уведомление о смене статуса */
+.status-change-notification {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    z-index: 9999;
+    animation: fadeInOut 3s ease;
+    display: none;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(-20px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Адаптивность для мобильных статусов */
+@media (max-width: 768px) {
+    .mobile-contact-status-badge {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .mobile-contact-status-badge.status-online {
+        background-color: #4CAF50;
+    }
+    
+    .mobile-contact-status-badge.status-away {
+        background-color: #FF9800;
+    }
+    
+    .mobile-contact-status-badge.status-dnd {
+        background-color: #f44336;
+    }
+    
+    .mobile-contact-status-badge.status-invisible {
+        background-color: #9e9e9e;
+    }
+    
+    .mobile-contact-status-badge.status-offline {
+        background-color: #bdbdbd;
+    }
+}
