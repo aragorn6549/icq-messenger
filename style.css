@@ -515,23 +515,20 @@ body {
 }
 
 .menu-toggle {
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 10000;
-    background: var(--primary-color);
-    color: white;
+    position: relative;
+    background: none;
     border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    transition: all 0.3s ease;
     font-size: 24px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    color: var(--primary-color);
+    padding: 0;
+    margin: 0;
+    transition: transform 0.3s ease;
 }
 
 .menu-icon, .close-icon {
@@ -1262,15 +1259,24 @@ body {
     transform: rotate(90deg);
 }
 
-/* Анимация иконок меню */
+/* Анимация иконок */
 .menu-icon, .close-icon {
     position: absolute;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.3s ease;
 }
 
 .close-icon {
     opacity: 0;
     transform: rotate(90deg);
+}
+
+/* Когда меню открыто */
+.menu-toggle.active .menu-icon {
+    opacity: 0;
+}
+
+.menu-toggle.active .close-icon {
+    opacity: 1;
 }
 
 .menu-toggle.menu-open .menu-icon {
