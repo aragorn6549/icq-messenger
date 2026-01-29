@@ -1513,29 +1513,25 @@ function showMainScreen() {
     document.getElementById('main-screen').style.display = 'flex';
     document.getElementById('user-info').style.display = 'flex';
     
-    // Показываем правильную шапку в зависимости от устройства
+    // Показываем правильную шапку
     if (window.innerWidth <= 768) {
-        // Это телефон
         const mobileHeader = document.querySelector('.mobile-header');
         const desktopHeader = document.querySelector('.desktop-header');
+        if (mobileHeader) mobileHeader.style.display = 'flex';
+        if (desktopHeader) desktopHeader.style.display = 'none';
         
-        if (mobileHeader) {
-            mobileHeader.style.display = 'flex';
-        }
-        if (desktopHeader) {
-            desktopHeader.style.display = 'none';
-        }
+        // Скрываем сайдбар на мобильных (будет открываться по кнопке)
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.display = 'none';
     } else {
-        // Это компьютер
         const desktopHeader = document.querySelector('.desktop-header');
         const mobileHeader = document.querySelector('.mobile-header');
+        if (desktopHeader) desktopHeader.style.display = 'flex';
+        if (mobileHeader) mobileHeader.style.display = 'none';
         
-        if (desktopHeader) {
-            desktopHeader.style.display = 'flex';
-        }
-        if (mobileHeader) {
-            mobileHeader.style.display = 'none';
-        }
+        // Показываем сайдбар на компьютере
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.style.display = 'flex';
     }
     
     // Загружаем контакты
