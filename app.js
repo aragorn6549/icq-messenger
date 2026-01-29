@@ -569,7 +569,7 @@ async function confirmAddContact(contactUserId) {
             .from('contacts')
             .select('*')
             .eq('user_id', currentUser.id)
-            .eq('contact_user_id', contactProfile.id)
+            .eq('contact_id', contactProfile.id)
             .single();
 
         if (!existingError && existingContact) {
@@ -603,8 +603,8 @@ async function loadContacts() {
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
-                contact_user_id,
-                profiles!contacts_contact_user_id_fkey (
+                contact_id,
+                profiles!contacts_contact_id_fkey (
                     id, display_name, uin, status, last_seen
                 )
             `)
@@ -616,8 +616,8 @@ async function loadContacts() {
             const { data: contacts2, error: error2 } = await supabaseClient
                 .from('contacts')
                 .select(`
-                    id, contact_user_id,
-                    profiles:profiles!contact_user_id (
+                    id, contact_id,
+                    profiles:profiles!contact_id (
                         id, display_name, uin, status, last_seen
                     )
                 `)
