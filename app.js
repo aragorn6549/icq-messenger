@@ -759,16 +759,28 @@ function selectContact(contact) {
     selectedContact = contact;
     console.log('Выбран контакт:', contact.display_name);
 
-    // Обновляем UI чата
-    document.getElementById('chat-title').textContent = contact.display_name;
-    document.getElementById('chat-uin').textContent = `UIN: ${contact.uin}`;
-    document.getElementById('chat-status').className = `chat-contact-status status-${contact.status}`;
-    document.getElementById('chat-status').textContent = getStatusEmoji(contact.status);
-
-    const avatar = document.getElementById('chat-avatar');
-    avatar.textContent = contact.display_name.charAt(0).toUpperCase();
-    avatar.style.display = 'flex';
-    document.getElementById('chat-details').style.display = 'flex';
+    // Обновляем UI чата с проверкой существования элементов
+    const chatTitle = document.getElementById('chat-title');
+    const chatUin = document.getElementById('chat-uin');
+    const chatStatus = document.getElementById('chat-status');
+    const chatAvatar = document.getElementById('chat-avatar');
+    const chatDetails = document.getElementById('chat-details');
+    
+    // Проверяем и обновляем каждый элемент, если он существует
+    if (chatTitle) chatTitle.textContent = contact.display_name;
+    if (chatUin) chatUin.textContent = `UIN: ${contact.uin}`;
+    
+    if (chatStatus) {
+        chatStatus.className = `chat-contact-status status-${contact.status}`;
+        chatStatus.textContent = getStatusEmoji(contact.status);
+    }
+    
+    if (chatAvatar) {
+        chatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+        chatAvatar.style.display = 'flex';
+    }
+    
+    if (chatDetails) chatDetails.style.display = 'flex';
 
     // Обновляем мобильную шапку
     if (window.innerWidth <= 768) {
@@ -776,7 +788,8 @@ function selectContact(contact) {
     }
 
     // Скрываем приветственное сообщение
-    document.getElementById('welcome-message').style.display = 'none';
+    const welcomeMessage = document.getElementById('welcome-message');
+    if (welcomeMessage) welcomeMessage.style.display = 'none';
 
     // На мобильных скрываем меню
     if (window.innerWidth <= 768) {
@@ -785,9 +798,14 @@ function selectContact(contact) {
 
     // Активируем поле ввода
     const messageInput = document.getElementById('message-input');
-    messageInput.disabled = false;
-    messageInput.placeholder = 'Введите сообщение...';
-    document.getElementById('send-btn').disabled = false;
+    const sendBtn = document.getElementById('send-btn');
+    
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Введите сообщение...';
+    }
+    
+    if (sendBtn) sendBtn.disabled = false;
 
     // Загружаем сообщения и подписываемся на новые
     loadMessages();
