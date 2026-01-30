@@ -531,9 +531,12 @@ async function addContact() {
     const uinInput = document.getElementById('uin-input').value.trim();
     const errorElement = document.getElementById('add-contact-error');
     const messageElement = document.getElementById('add-contact-message');
+    const statusElement = document.getElementById('add-contact-status');
+    const footer = document.querySelector('#add-contact-modal .modal-footer');
     
     errorElement.textContent = '';
     messageElement.textContent = '';
+    statusElement.textContent = '';
     
     if (!uinInput) {
         errorElement.textContent = 'Введите UIN или имя пользователя';
@@ -591,9 +594,11 @@ async function addContact() {
             .single();
         
         if (!existingError && existingRequest) {
-            errorElement.textContent = existingRequest.status === 'pending' 
-                ? 'Запрос уже отправлен' 
-                : 'Контакт уже добавлен';
+            if (existingRequest.status === 'pending') {
+                errorElement.textContent = 'Запрос уже отправлен и ожидает подтверждения';
+            } else {
+                errorElement.textContent = 'Контакт уже добавлен';
+            }
             hideLoading();
             return;
         }
@@ -609,22 +614,46 @@ async function addContact() {
         
         if (insertError) throw insertError;
         
-        messageElement.textContent = `✅ Запрос отправлен пользователю ${contactProfile.display_name}!`;
-        messageElement.style.color = 'green';
+        // Скрываем кнопки и показываем статус
+        footer.style.display = 'none';
+        statusElement.style.display = 'block';
+        statusElement.innerHTML = `
+            <div class="status-success">
+                <span class="status-icon">✅</span>
+                <div class="status-message">
+                    <strong>Запрос отправлен!</strong><br>
+                    Пользователь ${contactProfile.display_name} получит уведомление.
+                </div>
+            </div>
+        `;
+        
         hideLoading();
         
-        // Закрываем модальное окно через 1.5 секунды
+        // Закрываем модальное окно через 2 секунды
         setTimeout(() => {
             hideModal();
             showToast('Запрос на добавление отправлен!');
-        }, 1500);
+        }, 2000);
         
     } catch (error) {
         hideLoading();
         console.error('Ошибка отправки запроса:', error);
-        errorElement.textContent = 'Ошибка при отправке запроса';
+        
+        // Показываем ошибку в статусе
+        footer.style.display = 'none';
+        statusElement.style.display = 'block';
+        statusElement.innerHTML = `
+            <div class="status-error">
+                <span class="status-icon">❌</span>
+                <div class="status-message">
+                    <strong>Ошибка!</strong><br>
+                    Не удалось отправить запрос.
+                </div>
+            </div>
+        `;
     }
 }
+
 
 // Функция для загрузки входящих запросов
 async function loadContactRequests() {
