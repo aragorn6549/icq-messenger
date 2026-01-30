@@ -3226,10 +3226,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Это будет вызвано после успешной авторизации
 });
 
-// Функции для контекстного меню
-let currentMenuAction = null;
-let currentContactId = null;
-let currentContactName = null;
 
 function toggleContactMenu(event, contactId) {
     event.stopPropagation();
