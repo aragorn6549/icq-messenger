@@ -135,6 +135,19 @@
     </div>
 </div>
 
+<!-- Модальное окно подтверждения -->
+<div id="confirm-modal" class="confirm-modal">
+    <div class="confirm-content">
+        <div class="confirm-title" id="confirm-title"></div>
+        <div class="confirm-message" id="confirm-message"></div>
+        <div class="confirm-warning" id="confirm-warning"></div>
+        <div class="confirm-actions">
+            <button class="confirm-btn cancel" onclick="hideConfirmModal()">Отмена</button>
+            <button class="confirm-btn delete" id="confirm-action-btn">Удалить</button>
+        </div>
+    </div>
+</div>
+        
 <!-- Затемнение фона когда открыты контакты -->
 <div class="sidebar-overlay" onclick="hideMobileMenu()"></div>
         
