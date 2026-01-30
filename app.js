@@ -13,7 +13,8 @@ let networkStatus = 'online';
 let isTabActive = true;
 let statusSubscription = null;
 let unreadMessages = {}; // Объект для хранения непрочитанных сообщений по контактам
-let allMessagesSubscription = null; // Глобальная подписка на все сообщения
+let allMessagesSubscription = null; // Подписка на ВСЕ сообщения (глобальная)
+let currentChatSubscription = null; // Подписка на текущий чат
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -341,28 +342,13 @@ async function logout() {
                 userActivityTimeout = null;
             }
             
-            // ОТПИСЫВАЕМСЯ ОТ ГЛОБАЛЬНОЙ ПОДПИСКИ
-            if (allMessagesSubscription) {
-                supabaseClient.removeChannel(allMessagesSubscription);
-                allMessagesSubscription = null;
-            }
-            
-            // ОТПИСЫВАЕМСЯ ОТ ОБНОВЛЕНИЙ СТАТУСОВ
-            if (statusSubscription) {
-                supabaseClient.removeChannel(statusSubscription);
-                statusSubscription = null;
-            }
+            // ОТПИСЫВАЕМСЯ ОТ ВСЕХ ПОДПИСОК
+            unsubscribeFromAll();
             
             resetMobileHeader();
             
             currentUser = null;
             selectedContact = null;
-            if (messagesSubscription) {
-                supabaseClient.removeChannel(messagesSubscription);
-            }
-            if (globalMessagesSubscription) {
-                supabaseClient.removeChannel(globalMessagesSubscription);
-            }
             showAuthScreen();
         }
     } catch (error) {
@@ -892,11 +878,10 @@ function displayContacts(contactsData) {
 }
 
 function selectContact(contact, isMobileMenu = false) {
-   
-     // Отписываемся от предыдущей подписки
-    if (messagesSubscription) {
-        supabaseClient.removeChannel(messagesSubscription);
-        messagesSubscription = null;
+    // Отписываемся от предыдущей подписки на чат
+    if (currentChatSubscription) {
+        supabaseClient.removeChannel(currentChatSubscription);
+        currentChatSubscription = null;
     }
     
     selectedContact = contact;
@@ -905,7 +890,7 @@ function selectContact(contact, isMobileMenu = false) {
     // Сбрасываем счетчик непрочитанных сообщений для этого контакта
     resetUnreadCount(contact.id);
     
-    // ОБЩИЕ ОБНОВЛЕНИЯ (работают везде)
+    // ОБЩИЕ ОБНОВЛЕНИЯ
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const welcomeMessage = document.getElementById('welcome-message');
@@ -914,7 +899,7 @@ function selectContact(contact, isMobileMenu = false) {
     if (messageInput) {
         messageInput.disabled = false;
         messageInput.placeholder = 'Введите сообщение...';
-        messageInput.focus(); // Фокусируемся на поле ввода
+        messageInput.focus();
     }
     
     if (sendBtn) sendBtn.disabled = false;
@@ -947,36 +932,35 @@ function selectContact(contact, isMobileMenu = false) {
     }
     
     // ОБНОВЛЕНИЕ ДЛЯ МОБИЛЬНОЙ ВЕРСИИ
-   
-if (window.innerWidth <= 768 || isMobileMenu) {
-    // Обновляем мобильную шапку
-    const mobileTitle = document.getElementById('mobile-title');
-    const mobileContactInfo = document.getElementById('mobile-contact-info');
-    const mobileChatTitle = document.getElementById('mobile-chat-title');
-    const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
-    const mobileChatUin = document.getElementById('mobile-chat-uin');
-    const mobileChatStatusBadge = document.getElementById('mobile-chat-status-badge');
-    
-    if (mobileTitle) mobileTitle.style.display = 'none';
-    if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
-    if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
-    if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
-    if (mobileChatUin) mobileChatUin.textContent = `UIN: ${contact.uin}`;
-    
-    // Обновляем статус-бейдж
-    if (mobileChatStatusBadge) {
-        mobileChatStatusBadge.className = `mobile-contact-status-badge status-${contact.status}`;
+    if (window.innerWidth <= 768 || isMobileMenu) {
+        // Обновляем мобильную шапку
+        const mobileTitle = document.getElementById('mobile-title');
+        const mobileContactInfo = document.getElementById('mobile-contact-info');
+        const mobileChatTitle = document.getElementById('mobile-chat-title');
+        const mobileChatAvatar = document.getElementById('mobile-chat-avatar');
+        const mobileChatUin = document.getElementById('mobile-chat-uin');
+        const mobileChatStatusBadge = document.getElementById('mobile-chat-status-badge');
+        
+        if (mobileTitle) mobileTitle.style.display = 'none';
+        if (mobileContactInfo) mobileContactInfo.style.display = 'flex';
+        if (mobileChatTitle) mobileChatTitle.textContent = contact.display_name;
+        if (mobileChatAvatar) mobileChatAvatar.textContent = contact.display_name.charAt(0).toUpperCase();
+        if (mobileChatUin) mobileChatUin.textContent = `UIN: ${contact.uin}`;
+        
+        // Обновляем статус-бейдж
+        if (mobileChatStatusBadge) {
+            mobileChatStatusBadge.className = `mobile-contact-status-badge status-${contact.status}`;
+        }
+        
+        // Закрываем мобильное меню, если открывали из него
+        if (isMobileMenu) {
+            hideMobileMenu();
+        }
     }
     
-    // Закрываем мобильное меню, если открывали из него
-    if (isMobileMenu) {
-        hideMobileMenu();
-    }
-}
-    
-       // Загружаем сообщения и подписываемся на новые
+    // Загружаем сообщения и подписываемся на новые
     loadMessages();
-    subscribeToMessages();
+    subscribeToCurrentChat(); // Подписываемся на текущий чат
     markMessagesAsRead(contact.id);
 }
 
@@ -1084,9 +1068,7 @@ async function sendMessage() {
     if (!content) return;
     
     try {
-        // showLoading('Отправка...'); // Убираем загрузку для мгновенного отображения
-        
-        // Создаем временный объект сообщения для мгновенного отображения
+        // Создаем временный объект сообщения
         const tempMessage = {
             id: `temp_${Date.now()}`,
             sender_id: currentUser.id,
@@ -1094,10 +1076,10 @@ async function sendMessage() {
             content: content,
             created_at: new Date().toISOString(),
             read: false,
-            temp: true // Флаг, что это временное сообщение
+            temp: true
         };
         
-        // Очищаем поле ввода сразу
+        // Очищаем поле ввода
         input.value = '';
         
         // Немедленно добавляем сообщение в чат
@@ -1112,10 +1094,9 @@ async function sendMessage() {
                 content: content,
                 read: false
             }])
-            .select(); // Добавляем select() чтобы получить созданное сообщение
+            .select();
         
         if (error) {
-            // Если ошибка, удаляем временное сообщение
             removeTempMessage(tempMessage.id);
             throw error;
         }
@@ -1125,13 +1106,15 @@ async function sendMessage() {
             replaceTempMessage(tempMessage.id, data[0]);
         }
         
+        console.log('Сообщение отправлено получателю:', selectedContact.id);
+        
     } catch (error) {
         console.error('Ошибка отправки сообщения:', error);
         showToast('Ошибка отправки сообщения', 'error');
-        // Восстанавливаем текст в поле ввода при ошибке
         input.value = content;
     }
 }
+
 
 // Функция для добавления сообщения в отображение
 function addMessageToDisplay(message, isSent) {
@@ -1238,7 +1221,7 @@ function cleanupEmptyDates() {
     });
 }
 
-function subscribeToMessages() {
+/*function subscribeToMessages() {
     if (messagesSubscription) {
         supabaseClient.removeChannel(messagesSubscription);
         messagesSubscription = null;
@@ -1282,7 +1265,7 @@ function subscribeToMessages() {
         .subscribe((status) => {
             console.log('Статус подписки на сообщения:', status);
         });
-}
+}  
 
 // Глобальная подписка на ВСЕ сообщения пользователя
 function subscribeToAllMessages() {
@@ -1335,6 +1318,156 @@ function subscribeToAllMessages() {
         .subscribe((status) => {
             console.log('Статус глобальной подписки:', status);
         });
+} */
+
+// Функция для создания глобальной подписки на ВСЕ сообщения
+function createGlobalMessagesSubscription() {
+    if (allMessagesSubscription) {
+        supabaseClient.removeChannel(allMessagesSubscription);
+        allMessagesSubscription = null;
+    }
+    
+    if (!currentUser) return;
+    
+    console.log('Создаем глобальную подписку на ВСЕ сообщения');
+    
+    allMessagesSubscription = supabaseClient
+        .channel(`global-messages-${currentUser.id}-${Date.now()}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id.eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('НОВОЕ СООБЩЕНИЕ ПОЛУЧЕНО:', payload.new);
+                
+                // Игнорируем свои сообщения
+                if (payload.new.sender_id === currentUser.id) return;
+                
+                // Получаем информацию об отправителе
+                const { data: sender } = await supabaseClient
+                    .from('profiles')
+                    .select('display_name')
+                    .eq('id', payload.new.sender_id)
+                    .single();
+                
+                const senderName = sender?.display_name || 'Неизвестный';
+                
+                // Ситуация 1: Если это сообщение от ВЫБРАННОГО контакта
+                if (selectedContact && selectedContact.id === payload.new.sender_id) {
+                    console.log('Сообщение от текущего контакта, добавляем в чат');
+                    addMessageToDisplay(payload.new, false);
+                    await markMessagesAsRead(selectedContact.id);
+                    scrollToNewMessages();
+                } 
+                // Ситуация 2: Если это сообщение от ДРУГОГО контакта
+                else {
+                    console.log('Сообщение от другого контакта, увеличиваем счетчик');
+                    
+                    // Увеличиваем счетчик непрочитанных
+                    incrementUnreadCount(payload.new.sender_id);
+                    
+                    // Обновляем списки контактов
+                    updateContactsUnreadIndicators('contacts-list');
+                    updateContactsUnreadIndicators('mobile-contacts-list');
+                    
+                    // Обновляем заголовок вкладки
+                    updateTabTitle();
+                    
+                    // Показываем уведомление
+                    showMessageNotification(payload.new);
+                    
+                    // Обновляем статус контакта в списках
+                    updateContactStatus(payload.new.sender_id, 'online', new Date().toISOString());
+                }
+            }
+        )
+        .subscribe((status) => {
+            console.log('Статус глобальной подписки:', status);
+            if (status === 'SUBSCRIBED') {
+                console.log('✅ Глобальная подписка активна!');
+            }
+        });
+}
+
+// Функция для подписки на текущий выбранный чат
+function subscribeToCurrentChat() {
+    if (currentChatSubscription) {
+        supabaseClient.removeChannel(currentChatSubscription);
+        currentChatSubscription = null;
+    }
+    
+    if (!selectedContact || !currentUser) return;
+    
+    console.log('Подписываемся на чат с:', selectedContact.display_name);
+    
+    currentChatSubscription = supabaseClient
+        .channel(`chat-${currentUser.id}-${selectedContact.id}-${Date.now()}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `and(sender_id.eq.${selectedContact.id},receiver_id.eq.${currentUser.id})`
+            },
+            async (payload) => {
+                console.log('Новое сообщение в текущем чате:', payload.new);
+                
+                // Добавляем сообщение в чат
+                addMessageToDisplay(payload.new, false);
+                
+                // Отмечаем как прочитанное
+                await markMessagesAsRead(selectedContact.id);
+                
+                // Прокручиваем к новому сообщению
+                scrollToNewMessages();
+                
+                // Сбрасываем счетчик для этого контакта
+                resetUnreadCount(selectedContact.id);
+            }
+        )
+        .subscribe((status) => {
+            console.log('Статус подписки на чат:', status);
+            if (status === 'SUBSCRIBED') {
+                console.log('✅ Подписка на чат активна!');
+            }
+        });
+}
+
+// Функция для отписки от всего
+function unsubscribeFromAll() {
+    console.log('Отписываемся от всех подписок...');
+    
+    if (allMessagesSubscription) {
+        supabaseClient.removeChannel(allMessagesSubscription);
+        allMessagesSubscription = null;
+        console.log('Глобальная подписка отключена');
+    }
+    
+    if (currentChatSubscription) {
+        supabaseClient.removeChannel(currentChatSubscription);
+        currentChatSubscription = null;
+        console.log('Подписка на чат отключена');
+    }
+    
+    if (messagesSubscription) {
+        supabaseClient.removeChannel(messagesSubscription);
+        messagesSubscription = null;
+    }
+    
+    if (globalMessagesSubscription) {
+        supabaseClient.removeChannel(globalMessagesSubscription);
+        globalMessagesSubscription = null;
+    }
+    
+    if (statusSubscription) {
+        supabaseClient.removeChannel(statusSubscription);
+        statusSubscription = null;
+    }
 }
 
 /* function subscribeToMessages() {
@@ -2614,10 +2747,7 @@ function showMainScreen() {
     }, 500);
     
     // СОЗДАЕМ ГЛОБАЛЬНУЮ ПОДПИСКУ НА ВСЕ СООБЩЕНИЯ
-    subscribeToAllMessages();
-    
-    // Подписываемся на изменения статусов
-    subscribeToStatusUpdates();
+    createGlobalMessagesSubscription();
     
     // Инициализируем отслеживание активности пользователя
     setTimeout(() => {
@@ -2625,7 +2755,6 @@ function showMainScreen() {
         initWindowFocusTracking();
     }, 1000);
 }
-
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
