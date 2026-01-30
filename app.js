@@ -11,6 +11,7 @@ let userActivityTimeout = null;
 let lastActivityTime = Date.now();
 let networkStatus = 'online';
 let isTabActive = true;
+let statusSubscription = null;
 let unreadMessages = {}; // Объект для хранения непрочитанных сообщений по контактам
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
@@ -319,6 +320,12 @@ async function logout() {
         
         showLoading('Выход из системы...');
 
+         // ОСТАНАВЛИВАЕМ ОТСЛЕЖИВАНИЕ СТАТУСОВ
+        if (statusSubscription) {
+            supabaseClient.removeChannel(statusSubscription);
+            statusSubscription = null;
+        }
+        
         // Устанавливаем статус "оффлайн" перед выходом
         if (currentUser) {
             await updateUserStatus('offline');
@@ -1311,6 +1318,97 @@ function subscribeToMessages() {
             }
         )
         .subscribe();
+}
+
+// Функция для подписки на изменения статусов контактов
+function subscribeToStatusUpdates() {
+    if (statusSubscription) {
+        supabaseClient.removeChannel(statusSubscription);
+    }
+    
+    if (!currentUser) return;
+    
+    // Подписываемся на все изменения в профилях
+    statusSubscription = supabaseClient
+        .channel('profiles-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'profiles'
+            },
+            (payload) => {
+                console.log('Обновление статуса:', payload.new);
+                
+                // Игнорируем обновления своего профиля
+                if (payload.new.id === currentUser.id) {
+                    return;
+                }
+                
+                // Обновляем статус во всех списках контактов
+                updateContactStatus(payload.new.id, payload.new.status, payload.new.last_seen);
+            }
+        )
+        .subscribe();
+}
+
+// Функция для обновления статуса контакта во всех местах
+function updateContactStatus(contactId, newStatus, lastSeen) {
+    // 1. Обновляем в основном списке контактов
+    updateContactInList('contacts-list', contactId, newStatus, lastSeen);
+    
+    // 2. Обновляем в мобильном списке контактов
+    updateContactInList('mobile-contacts-list', contactId, newStatus, lastSeen);
+    
+    // 3. Если этот контакт сейчас выбран, обновляем его статус в чате
+    if (selectedContact && selectedContact.id === contactId) {
+        selectedContact.status = newStatus;
+        selectedContact.last_seen = lastSeen;
+        
+        // Обновляем статус в компьютерном заголовке
+        const chatStatus = document.getElementById('chat-status');
+        if (chatStatus) {
+            chatStatus.className = `chat-contact-status status-${newStatus}`;
+            chatStatus.textContent = getStatusEmoji(newStatus);
+        }
+        
+        // Обновляем статус в мобильном заголовке
+        const mobileStatusBadge = document.getElementById('mobile-chat-status-badge');
+        if (mobileStatusBadge) {
+            mobileStatusBadge.className = `mobile-contact-status-badge status-${newStatus}`;
+        }
+    }
+}
+
+// Вспомогательная функция для обновления контакта в списке
+function updateContactInList(listId, contactId, newStatus, lastSeen) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    
+    const contactItem = list.querySelector(`[data-contact-id="${contactId}"]`);
+    if (!contactItem) return;
+    
+    // Обновляем статус
+    const statusElement = contactItem.querySelector('.contact-status');
+    if (statusElement) {
+        statusElement.className = `contact-status status-${newStatus}`;
+        statusElement.textContent = getStatusEmoji(newStatus);
+    }
+    
+    // Автоматически ставим "оффлайн" если пользователь давно не был онлайн
+    const now = new Date();
+    const lastSeenDate = new Date(lastSeen);
+    const hoursDiff = (now - lastSeenDate) / (1000 * 60 * 60);
+    
+    if (hoursDiff > 1 && newStatus === 'online') {
+        // Пользователь был онлайн больше часа назад - ставим оффлайн
+        const offlineStatusElement = contactItem.querySelector('.contact-status');
+        if (offlineStatusElement) {
+            offlineStatusElement.className = 'contact-status status-offline';
+            offlineStatusElement.textContent = '⚪';
+        }
+    }
 }
 
 // Функция для показа уведомлений о сообщениях
@@ -2398,7 +2496,7 @@ function showMainScreen() {
         if (sidebar) sidebar.style.display = 'flex';
     }
     
-    // Загружаем контакты
+// Загружаем контакты
     loadContacts();
     loadMobileContacts();
     
@@ -2406,6 +2504,9 @@ function showMainScreen() {
     setTimeout(() => {
         loadUnreadMessagesCount();
     }, 500);
+    
+    // ПОДПИСЫВАЕМСЯ НА ИЗМЕНЕНИЯ СТАТУСОВ
+    subscribeToStatusUpdates();
     
     // Инициализируем отслеживание активности пользователя
     setTimeout(() => {
