@@ -1183,10 +1183,10 @@ function displayContacts(contactsData) {
                 <button class="contact-menu-btn" onclick="toggleContactMenu(event, '${contact.id}')">⋮</button>
                 <div class="contact-menu" id="menu-${contact.id}">
                     <button class="menu-item" onclick="confirmDeleteChat('${contact.id}', '${contact.display_name}')">
-                        <span class="menu-icon">🗑️</span> Удалить чат
+                        <span class="menu-icon"></span> Удалить чат
                     </button>
                     <button class="menu-item delete-contact" onclick="confirmDeleteContact('${contact.id}', '${contact.display_name}')">
-                        <span class="menu-icon">👤❌</span> Удалить контакт
+                        <span class="menu-icon"></span> Удалить контакт
                     </button>
                 </div>
             </div>
