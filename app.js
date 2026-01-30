@@ -13,6 +13,7 @@ let networkStatus = 'online';
 let isTabActive = true;
 let statusSubscription = null;
 let unreadMessages = {}; // Объект для хранения непрочитанных сообщений по контактам
+let allMessagesSubscription = null; // Глобальная подписка на все сообщения
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -320,12 +321,6 @@ async function logout() {
         
         showLoading('Выход из системы...');
 
-         // ОСТАНАВЛИВАЕМ ОТСЛЕЖИВАНИЕ СТАТУСОВ
-        if (statusSubscription) {
-            supabaseClient.removeChannel(statusSubscription);
-            statusSubscription = null;
-        }
-        
         // Устанавливаем статус "оффлайн" перед выходом
         if (currentUser) {
             await updateUserStatus('offline');
@@ -346,6 +341,18 @@ async function logout() {
                 userActivityTimeout = null;
             }
             
+            // ОТПИСЫВАЕМСЯ ОТ ГЛОБАЛЬНОЙ ПОДПИСКИ
+            if (allMessagesSubscription) {
+                supabaseClient.removeChannel(allMessagesSubscription);
+                allMessagesSubscription = null;
+            }
+            
+            // ОТПИСЫВАЕМСЯ ОТ ОБНОВЛЕНИЙ СТАТУСОВ
+            if (statusSubscription) {
+                supabaseClient.removeChannel(statusSubscription);
+                statusSubscription = null;
+            }
+            
             resetMobileHeader();
             
             currentUser = null;
@@ -364,6 +371,7 @@ async function logout() {
         showToast('Ошибка при выходе', 'error');
     }
 }
+
 
 // === ФУНКЦИИ ПРОФИЛЯ ===
 async function loadUserProfile() {
@@ -884,6 +892,13 @@ function displayContacts(contactsData) {
 }
 
 function selectContact(contact, isMobileMenu = false) {
+   
+     // Отписываемся от предыдущей подписки
+    if (messagesSubscription) {
+        supabaseClient.removeChannel(messagesSubscription);
+        messagesSubscription = null;
+    }
+    
     selectedContact = contact;
     console.log('Выбран контакт:', contact.display_name, isMobileMenu ? '(из мобильного меню)' : '');
     
@@ -1226,9 +1241,12 @@ function cleanupEmptyDates() {
 function subscribeToMessages() {
     if (messagesSubscription) {
         supabaseClient.removeChannel(messagesSubscription);
+        messagesSubscription = null;
     }
     
     if (!selectedContact || !currentUser) return;
+    
+    console.log('Подписываемся на сообщения с контактом:', selectedContact.display_name);
     
     messagesSubscription = supabaseClient
         .channel(`private-chat-${Math.min(currentUser.id, selectedContact.id)}-${Math.max(currentUser.id, selectedContact.id)}`)
@@ -1241,9 +1259,9 @@ function subscribeToMessages() {
                 filter: `or(sender_id.eq.${selectedContact.id},receiver_id.eq.${selectedContact.id})`
             },
             async (payload) => {
-                console.log('Новое сообщение:', payload.new);
+                console.log('Новое сообщение в текущем чате:', payload.new);
                 
-                // Если это сообщение от нас самих, игнорируем (мы уже добавили его локально)
+                // Если это сообщение от нас самих, игнорируем
                 if (payload.new.sender_id === currentUser.id) {
                     return;
                 }
@@ -1251,22 +1269,75 @@ function subscribeToMessages() {
                 // Добавляем сообщение в чат
                 addMessageToDisplay(payload.new, false);
                 
-                // Отмечаем сообщение как прочитанное, если чат открыт
-                if (selectedContact && selectedContact.id === payload.new.sender_id) {
-                    await markMessagesAsRead(selectedContact.id);
-                } else {
-                    // Если чат не открыт с этим контактом, увеличиваем счетчик непрочитанных
-                    incrementUnreadCount(payload.new.sender_id);
-                }
+                // Отмечаем как прочитанное
+                await markMessagesAsRead(selectedContact.id);
+                
+                // Сбрасываем счетчик непрочитанных для этого контакта
+                resetUnreadCount(selectedContact.id);
                 
                 // Показываем уведомление, если окно не в фокусе
                 showMessageNotification(payload.new);
             }
         )
-        .subscribe();
+        .subscribe((status) => {
+            console.log('Статус подписки на сообщения:', status);
+        });
 }
 
-function subscribeToMessages() {
+// Глобальная подписка на ВСЕ сообщения пользователя
+function subscribeToAllMessages() {
+    if (allMessagesSubscription) {
+        supabaseClient.removeChannel(allMessagesSubscription);
+        allMessagesSubscription = null;
+    }
+    
+    if (!currentUser) return;
+    
+    console.log('Создаем глобальную подписку на все сообщения');
+    
+    allMessagesSubscription = supabaseClient
+        .channel(`global-messages-${currentUser.id}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id.eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('Глобальное уведомление о новом сообщении:', payload.new);
+                
+                // Игнорируем свои сообщения
+                if (payload.new.sender_id === currentUser.id) {
+                    return;
+                }
+                
+                // Игнорируем сообщения от выбранного контакта (они обрабатываются в другой подписке)
+                if (selectedContact && payload.new.sender_id === selectedContact.id) {
+                    return;
+                }
+                
+                // Увеличиваем счетчик непрочитанных для отправителя
+                incrementUnreadCount(payload.new.sender_id);
+                
+                // Обновляем списки контактов
+                await loadContacts();
+                await loadMobileContacts();
+                
+                // Показываем уведомление
+                showMessageNotification(payload.new);
+                
+                // Обновляем заголовок вкладки
+                updateTabTitle();
+            }
+        )
+        .subscribe((status) => {
+            console.log('Статус глобальной подписки:', status);
+        });
+}
+
+/* function subscribeToMessages() {
     if (messagesSubscription) {
         supabaseClient.removeChannel(messagesSubscription);
     }
@@ -1302,7 +1373,7 @@ function subscribeToMessages() {
             }
         )
         .subscribe();
-}
+}    */
 
 // Функция для подписки на изменения статусов контактов
 function subscribeToStatusUpdates() {
@@ -2519,7 +2590,7 @@ function showMainScreen() {
         if (mobileHeader) mobileHeader.style.display = 'flex';
         if (desktopHeader) desktopHeader.style.display = 'none';
         
-        // Скрываем сайдбар на мобильных (будет открываться по кнопке)
+        // Скрываем сайдбар на мобильных
         const sidebar = document.querySelector('.sidebar');
         if (sidebar) sidebar.style.display = 'none';
     } else {
@@ -2533,7 +2604,7 @@ function showMainScreen() {
         if (sidebar) sidebar.style.display = 'flex';
     }
     
-// Загружаем контакты
+    // Загружаем контакты
     loadContacts();
     loadMobileContacts();
     
@@ -2542,7 +2613,10 @@ function showMainScreen() {
         loadUnreadMessagesCount();
     }, 500);
     
-    // ПОДПИСЫВАЕМСЯ НА ИЗМЕНЕНИЯ СТАТУСОВ
+    // СОЗДАЕМ ГЛОБАЛЬНУЮ ПОДПИСКУ НА ВСЕ СООБЩЕНИЯ
+    subscribeToAllMessages();
+    
+    // Подписываемся на изменения статусов
     subscribeToStatusUpdates();
     
     // Инициализируем отслеживание активности пользователя
@@ -2551,6 +2625,7 @@ function showMainScreen() {
         initWindowFocusTracking();
     }, 1000);
 }
+
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
