@@ -113,6 +113,18 @@
     <div class="contacts-search">
         <input type="text" id="mobile-contacts-search" placeholder="Поиск контактов..." onkeyup="searchMobileContacts()">
     </div>
+
+    <!-- Блок входящих запросов -->
+    <div id="mobile-contact-requests-section" class="contact-requests-section" style="display: none;">
+        <div class="contact-requests-header">
+            <h4>📨 Входящие запросы</h4>
+            <span id="mobile-requests-count" class="requests-count">0</span>
+        </div>
+        <div id="mobile-contact-requests-list" class="contact-requests-list">
+            <!-- Запросы будут здесь -->
+        </div>
+    </div>
+    
     <div id="mobile-contacts-list" class="contacts-list">
         <!-- Контакты будут здесь -->
         <div class="no-contacts">
@@ -192,6 +204,18 @@
             <div class="contacts-search">
                 <input type="text" id="contacts-search" placeholder="Поиск контактов..." onkeyup="searchContacts()">
             </div>
+
+            <!-- Блок входящих запросов -->
+            <div id="contact-requests-section" class="contact-requests-section" style="display: none;">
+                <div class="contact-requests-header">
+                    <h4>📨 Входящие запросы</h4>
+                    <span id="requests-count" class="requests-count">0</span>
+                </div>
+                <div id="contact-requests-list" class="contact-requests-list">
+                    <!-- Запросы будут здесь -->
+                </div>
+            </div>
+            
             <div id="contacts-list" class="contacts-list">
                 <!-- Контакты будут здесь -->
                 <div class="no-contacts">
