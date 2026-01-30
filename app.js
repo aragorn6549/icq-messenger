@@ -823,23 +823,7 @@ function displayContacts(contactsData) {
              </div>
         `;
 
-        // Добавляем индикатор непрочитанных, если есть
-        if (unreadCount > 0) {
-            const indicator = document.createElement('div');
-            indicator.className = 'unread-indicator unread-blinking';
-            indicator.innerHTML = '✉️';
-
-             if (unreadCount > 1) {
-                const counter = document.createElement('span');
-                counter.className = 'unread-count';
-                counter.textContent = unreadCount > 99 ? '99+' : unreadCount;
-                indicator.appendChild(counter);
-            }
-
-            contactItem.appendChild(indicator);
-        }
-
-        contactsList.appendChild(contactItem);
+         contactsList.appendChild(contactItem);
     });
 
 // Удалена лишняя } и весь второй блок кода (строки 826-887)
@@ -2184,12 +2168,61 @@ async function loadUnreadMessagesCount() {
 }
 
 // Функция для обновления индикаторов непрочитанных сообщений у контактов
-function updateContactUnreadIndicators() {
-    // Обновляем в основном списке контактов
-    updateContactsUnreadIndicators('contacts-list');
-    
-    // Обновляем в мобильном списке контактов
-    updateContactsUnreadIndicators('mobile-contacts-list');
+function updateContactUnreadIndicator(contactId, count = null) {
+    // Обновляем в объекте
+    if (count !== null) {
+        if (count > 0) {
+            unreadMessages[contactId] = count;
+        } else {
+            delete unreadMessages[contactId];
+        }
+    }
+
+    // Обновляем в обоих списках
+    ['contacts-list', 'mobile-contacts-list'].forEach(listId => {
+        const contactItem = document.querySelector(`#${listId} .contact-item[data-contact-id="${contactId}"]`);
+        if (contactItem) {
+            const currentCount = unreadMessages[contactId];
+
+            if (currentCount) {
+                // Ищем существующий индикатор
+                let indicator = contactItem.querySelector('.unread-indicator');
+                
+                if (!indicator) {
+                    // Создаём новый индикатор только если его нет
+                    indicator = document.createElement('div');
+                    indicator.className = 'unread-indicator';
+                    indicator.innerHTML = '✉️';
+                    contactItem.appendChild(indicator);
+                }
+
+                // Обновляем только счетчик
+                if (currentCount > 1) {
+                    let counter = indicator.querySelector('.unread-count');
+                    if (!counter) {
+                        counter = document.createElement('span');
+                        counter.className = 'unread-count';
+                        indicator.appendChild(counter);
+                    }
+                    counter.textContent = currentCount > 99 ? '99+' : currentCount;
+                } else {
+                    // Удаляем счётчик если он есть
+                    const counter = indicator.querySelector('.unread-count');
+                    if (counter) counter.remove();
+                }
+
+                // Добавляем анимацию
+                indicator.classList.add('unread-blinking');
+                
+            } else {
+                // Удаляем индикатор если нет непрочитанных
+                const indicator = contactItem.querySelector('.unread-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        }
+    });
 }
 
 // Функция для обновления конкретного списка контактов
