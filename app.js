@@ -15,6 +15,7 @@ let statusSubscription = null;
 let unreadMessages = {}; // Объект для хранения непрочитанных сообщений по контактам
 let allMessagesSubscription = null; // Подписка на ВСЕ сообщения (глобальная)
 let currentChatSubscription = null; // Подписка на текущий чат
+let contactRequestsSubscription = null;
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -524,6 +525,8 @@ async function changeStatus(newStatus) {
 }
 
 // === ФУНКЦИИ КОНТАКТОВ ===
+// === ФУНКЦИИ ДЛЯ СИСТЕМЫ ЗАПРОСОВ ===
+
 async function addContact() {
     const uinInput = document.getElementById('uin-input').value.trim();
     const errorElement = document.getElementById('add-contact-error');
@@ -579,38 +582,366 @@ async function addContact() {
             return;
         }
         
-        // Проверяем, не добавлен ли контакт уже
-        const { data: existingContact, error: existingError } = await supabaseClient
+        // Проверяем, не отправлен ли запрос уже
+        const { data: existingRequest, error: existingError } = await supabaseClient
             .from('contacts')
             .select('*')
             .eq('user_id', currentUser.id)
             .eq('contact_id', contactProfile.id)
             .single();
         
-        if (!existingError && existingContact) {
-            errorElement.textContent = 'Контакт уже добавлен';
+        if (!existingError && existingRequest) {
+            errorElement.textContent = existingRequest.status === 'pending' 
+                ? 'Запрос уже отправлен' 
+                : 'Контакт уже добавлен';
             hideLoading();
             return;
         }
         
-        // Добавляем контакт
+        // Отправляем запрос на добавление
         const { error: insertError } = await supabaseClient
             .from('contacts')
-            .insert([{ user_id: currentUser.id, contact_id: contactProfile.id }]);
+            .insert([{ 
+                user_id: currentUser.id, 
+                contact_id: contactProfile.id,
+                status: 'pending'
+            }]);
         
         if (insertError) throw insertError;
         
-        messageElement.textContent = `Контакт ${contactProfile.display_name} добавлен!`;
+        messageElement.textContent = `✅ Запрос отправлен пользователю ${contactProfile.display_name}!`;
         messageElement.style.color = 'green';
         hideLoading();
         
-        await loadContacts(); // Обновляем список контактов
-        setTimeout(hideModal, 1500); // Закрываем модальное окно через 1.5 сек
+        // Закрываем модальное окно через 1.5 секунды
+        setTimeout(() => {
+            hideModal();
+            showToast('Запрос на добавление отправлен!');
+        }, 1500);
+        
     } catch (error) {
         hideLoading();
-        console.error('Ошибка добавления контакта:', error);
-        errorElement.textContent = 'Ошибка при добавлении контакта';
+        console.error('Ошибка отправки запроса:', error);
+        errorElement.textContent = 'Ошибка при отправке запроса';
     }
+}
+
+// Функция для загрузки входящих запросов
+async function loadContactRequests() {
+    if (!currentUser) return;
+    
+    try {
+        console.log('Загрузка входящих запросов...');
+        
+        const { data: requests, error } = await supabaseClient
+            .from('contacts')
+            .select(`
+                id,
+                user_id,
+                status,
+                created_at,
+                profiles!contacts_user_id_fkey (
+                    id, display_name, uin, status
+                )
+            `)
+            .eq('contact_id', currentUser.id)
+            .eq('status', 'pending');
+        
+        if (error) throw error;
+        
+        // Отображаем запросы
+        displayContactRequests(requests || []);
+    } catch (error) {
+        console.error('Ошибка загрузки запросов:', error);
+    }
+}
+
+// Функция для отображения входящих запросов
+function displayContactRequests(requestsData) {
+    const requestsList = document.getElementById('contact-requests-list');
+    if (!requestsList) return;
+    
+    requestsList.innerHTML = '';
+    
+    if (!requestsData || requestsData.length === 0) {
+        // Скрываем блок запросов если их нет
+        const requestsSection = document.getElementById('contact-requests-section');
+        if (requestsSection) {
+            requestsSection.style.display = 'none';
+        }
+        return;
+    }
+    
+    // Показываем блок запросов
+    const requestsSection = document.getElementById('contact-requests-section');
+    if (requestsSection) {
+        requestsSection.style.display = 'block';
+    }
+    
+    // Сортируем по дате (новые сверху)
+    requestsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    requestsData.forEach(request => {
+        if (!request.profiles) return;
+        
+        const requestItem = document.createElement('div');
+        requestItem.className = 'contact-request-item';
+        requestItem.setAttribute('data-request-id', request.id);
+        
+        const sender = request.profiles;
+        const timeAgo = getTimeAgo(request.created_at);
+        
+        requestItem.innerHTML = `
+            <div class="request-avatar">${sender.display_name.charAt(0).toUpperCase()}</div>
+            <div class="request-info">
+                <div class="request-name">${sender.display_name}</div>
+                <div class="request-details">
+                    <span class="request-uin">UIN: ${sender.uin}</span>
+                    <span class="request-time">${timeAgo}</span>
+                </div>
+                <div class="request-status">Ждет подтверждения</div>
+            </div>
+            <div class="request-actions">
+                <button class="request-btn accept-btn" onclick="acceptRequest('${request.id}', '${sender.id}')">
+                    ✓ Принять
+                </button>
+                <button class="request-btn reject-btn" onclick="rejectRequest('${request.id}')">
+                    ✗ Отклонить
+                </button>
+            </div>
+        `;
+        
+        requestsList.appendChild(requestItem);
+    });
+}
+
+// Функция для отображения входящих запросов в мобильном меню
+function displayMobileContactRequests(requestsData) {
+    const requestsList = document.getElementById('mobile-contact-requests-list');
+    if (!requestsList) return;
+    
+    requestsList.innerHTML = '';
+    
+    if (!requestsData || requestsData.length === 0) {
+        // Скрываем блок запросов если их нет
+        const requestsSection = document.getElementById('mobile-contact-requests-section');
+        if (requestsSection) {
+            requestsSection.style.display = 'none';
+        }
+        return;
+    }
+    
+    // Показываем блок запросов
+    const requestsSection = document.getElementById('mobile-contact-requests-section');
+    if (requestsSection) {
+        requestsSection.style.display = 'block';
+    }
+    
+    // Сортируем по дате (новые сверху)
+    requestsData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    requestsData.forEach(request => {
+        if (!request.profiles) return;
+        
+        const requestItem = document.createElement('div');
+        requestItem.className = 'contact-request-item';
+        requestItem.setAttribute('data-request-id', request.id);
+        
+        const sender = request.profiles;
+        const timeAgo = getTimeAgo(request.created_at);
+        
+        requestItem.innerHTML = `
+            <div class="request-avatar">${sender.display_name.charAt(0).toUpperCase()}</div>
+            <div class="request-info">
+                <div class="request-name">${sender.display_name}</div>
+                <div class="request-details">
+                    <span class="request-uin">UIN: ${sender.uin}</span>
+                    <span class="request-time">${timeAgo}</span>
+                </div>
+                <div class="request-status">Ждет подтверждения</div>
+            </div>
+            <div class="request-actions">
+                <button class="request-btn accept-btn" onclick="acceptRequest('${request.id}', '${sender.id}')">
+                    ✓
+                </button>
+                <button class="request-btn reject-btn" onclick="rejectRequest('${request.id}')">
+                    ✗
+                </button>
+            </div>
+        `;
+        
+        requestsList.appendChild(requestItem);
+    });
+}
+
+// Функция для принятия запроса
+async function acceptRequest(requestId, senderId) {
+    try {
+        showLoading('Принятие запроса...');
+        
+        // 1. Обновляем статус запроса на 'accepted'
+        const { error: updateError } = await supabaseClient
+            .from('contacts')
+            .update({ status: 'accepted' })
+            .eq('id', requestId);
+        
+        if (updateError) throw updateError;
+        
+        // 2. Создаем обратную запись (чтобы оба видели друг друга)
+        const { error: reverseError } = await supabaseClient
+            .from('contacts')
+            .insert([{
+                user_id: currentUser.id,
+                contact_id: senderId,
+                status: 'accepted'
+            }]);
+        
+        if (reverseError) throw reverseError;
+        
+        hideLoading();
+        
+        // Показываем уведомление
+        showToast('✅ Контакт добавлен!');
+        
+        // Перезагружаем списки
+        await loadContacts();
+        await loadMobileContacts();
+        await loadContactRequests();
+        await loadMobileContactRequests();
+        
+        // Отписываемся и подписываемся заново на контакты
+        unsubscribeFromAll();
+        createGlobalMessagesSubscription();
+        subscribeToStatusUpdates();
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка при принятии запроса:', error);
+        showToast('Ошибка при принятии запроса', 'error');
+    }
+}
+
+// Функция для отклонения запроса
+async function rejectRequest(requestId) {
+    try {
+        showLoading('Отклонение запроса...');
+        
+        // Удаляем запрос
+        const { error } = await supabaseClient
+            .from('contacts')
+            .delete()
+            .eq('id', requestId);
+        
+        if (error) throw error;
+        
+        hideLoading();
+        
+        // Показываем уведомление
+        showToast('❌ Запрос отклонен');
+        
+        // Перезагружаем списки
+        await loadContactRequests();
+        await loadMobileContactRequests();
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка при отклонении запроса:', error);
+        showToast('Ошибка при отклонении запроса', 'error');
+    }
+}
+
+// Функция для загрузки запросов в мобильном меню
+async function loadMobileContactRequests() {
+    if (!currentUser) return;
+    
+    try {
+        console.log('Загрузка входящих запросов для мобильного меню...');
+        
+        const { data: requests, error } = await supabaseClient
+            .from('contacts')
+            .select(`
+                id,
+                user_id,
+                status,
+                created_at,
+                profiles!contacts_user_id_fkey (
+                    id, display_name, uin, status
+                )
+            `)
+            .eq('contact_id', currentUser.id)
+            .eq('status', 'pending');
+        
+        if (error) throw error;
+        
+        // Отображаем запросы в мобильном меню
+        displayMobileContactRequests(requests || []);
+    } catch (error) {
+        console.error('Ошибка загрузки запросов для мобильного меню:', error);
+    }
+}
+
+// Функция для подписки на изменения запросов
+function subscribeToContactRequests() {
+    if (contactRequestsSubscription) {
+        supabaseClient.removeChannel(contactRequestsSubscription);
+    }
+    
+    if (!currentUser) return;
+    
+    contactRequestsSubscription = supabaseClient
+        .channel(`contact-requests-${currentUser.id}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*', // INSERT, UPDATE, DELETE
+                schema: 'public',
+                table: 'contacts',
+                filter: `contact_id.eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('Изменение в запросах:', payload);
+                
+                // Обновляем списки запросов
+                await loadContactRequests();
+                await loadMobileContactRequests();
+                
+                // Если это новый запрос, показываем уведомление
+                if (payload.eventType === 'INSERT' && payload.new.status === 'pending') {
+                    const { data: sender } = await supabaseClient
+                        .from('profiles')
+                        .select('display_name')
+                        .eq('id', payload.new.user_id)
+                        .single();
+                    
+                    if (sender) {
+                        showToast(`📨 Новый запрос от ${sender.display_name}`);
+                    }
+                }
+                
+                // Обновляем списки контактов
+                await loadContacts();
+                await loadMobileContacts();
+            }
+        )
+        .subscribe();
+}
+
+// Вспомогательная функция для форматирования времени
+function getTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays === 1) return 'вчера';
+    if (diffDays < 7) return `${diffDays} дн назад`;
+    
+    return date.toLocaleDateString('ru-RU');
 }
 
 async function searchUsers(searchTerm) {
@@ -712,13 +1043,13 @@ async function confirmAddContact(contactUserId) {
     }
 }
 
-async function loadContacts() {
+sync function loadContacts() {
     if (!currentUser) return;
     
     try {
         console.log('Загрузка списка контактов...');
         
-        // Используем правильный синтаксис для связи с профилями
+        // Загружаем только принятые контакты
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
@@ -727,7 +1058,8 @@ async function loadContacts() {
                     id, display_name, uin, status, last_seen
                 )
             `)
-            .eq('user_id', currentUser.id);
+            .eq('user_id', currentUser.id)
+            .eq('status', 'accepted');
         
         if (error) {
             console.error('Ошибка загрузки контактов:', error);
@@ -1454,6 +1786,12 @@ function unsubscribeFromAll() {
         console.log('Подписка на чат отключена');
     }
     
+    if (contactRequestsSubscription) {
+        supabaseClient.removeChannel(contactRequestsSubscription);
+        contactRequestsSubscription = null;
+        console.log('Подписка на запросы отключена');
+    }
+    
     if (messagesSubscription) {
         supabaseClient.removeChannel(messagesSubscription);
         messagesSubscription = null;
@@ -1945,6 +2283,7 @@ async function loadMobileContacts() {
     try {
         console.log('Загрузка контактов для мобильного меню...');
         
+        // Загружаем только принятые контакты
         const { data: contacts, error } = await supabaseClient
             .from('contacts')
             .select(`
@@ -1953,7 +2292,8 @@ async function loadMobileContacts() {
                     id, display_name, uin, status
                 )
             `)
-            .eq('user_id', currentUser.id);
+            .eq('user_id', currentUser.id)
+            .eq('status', 'accepted');
         
         if (error) throw error;
         
@@ -1962,7 +2302,6 @@ async function loadMobileContacts() {
         console.error('Ошибка загрузки контактов для мобильного меню:', error);
     }
 }
-
 // Отображение контактов в мобильном меню
 function displayMobileContacts(contactsData) {
     const contactsList = document.getElementById('mobile-contacts-list');
@@ -2737,9 +3076,11 @@ function showMainScreen() {
         if (sidebar) sidebar.style.display = 'flex';
     }
     
-    // Загружаем контакты
+    // Загружаем контакты и запросы
     loadContacts();
     loadMobileContacts();
+    loadContactRequests();
+    loadMobileContactRequests();
     
     // Загружаем количество непрочитанных сообщений
     setTimeout(() => {
@@ -2749,12 +3090,19 @@ function showMainScreen() {
     // СОЗДАЕМ ГЛОБАЛЬНУЮ ПОДПИСКУ НА ВСЕ СООБЩЕНИЯ
     createGlobalMessagesSubscription();
     
+    // ПОДПИСЫВАЕМСЯ НА ИЗМЕНЕНИЯ ЗАПРОСОВ
+    subscribeToContactRequests();
+    
+    // Подписываемся на изменения статусов
+    subscribeToStatusUpdates();
+    
     // Инициализируем отслеживание активности пользователя
     setTimeout(() => {
         initActivityTracking();
         initWindowFocusTracking();
     }, 1000);
 }
+
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
