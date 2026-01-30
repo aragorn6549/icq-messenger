@@ -1113,27 +1113,18 @@ function displayContacts(contactsData) {
 
     if (!contactsData || contactsData.length === 0) {
         contactsList.innerHTML = `
-             <div class="no-contacts">
-                 <div>👋 Начните общение!</div>
-                 <p>Добавьте контакты по UIN, чтобы начать переписку</p>
-                 <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
-             </div>
+            <div class="no-contacts">
+                <div>👋 Начните общение!</div>
+                <p>Добавьте контакты по UIN, чтобы начать переписку</p>
+                <button onclick="showAddContact()" class="add-first-contact">Добавить первый контакт</button>
+            </div>
         `;
         return;
     }
 
     // Подготавливаем данные для отображения
     const contacts = contactsData.map(item => {
-        // Проверяем разные форматы ответа
         if (item.profiles) {
-            return {
-                id: item.profiles.id,
-                display_name: item.profiles.display_name,
-                 uin: item.profiles.uin,
-                status: item.profiles.status,
-                last_seen: item.profiles.last_seen
-            };
-        } else if (item.profiles) { // альтернативный формат
             return {
                 id: item.profiles.id,
                 display_name: item.profiles.display_name,
@@ -1162,25 +1153,57 @@ function displayContacts(contactsData) {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
         contactItem.setAttribute('data-contact-id', contact.id);
-        contactItem.onclick = () => selectContact(contact);
+        contactItem.onclick = (e) => {
+            // Проверяем, не кликнули ли мы по меню
+            if (!e.target.closest('.contact-menu')) {
+                selectContact(contact);
+            }
+        };
 
         // Получаем количество непрочитанных сообщений
         const unreadCount = unreadMessages[contact.id] || 0;
 
         contactItem.innerHTML = `
-           <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
-             <div class="contact-info">
-                 <div class="contact-name">${contact.display_name}</div>
-                 <div class="contact-details">
-                     <span class="contact-uin">UIN: ${contact.uin}</span>
-                     <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
-                 </div>
-             </div>
+            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
+            <div class="contact-info">
+                <div class="contact-name">${contact.display_name}</div>
+                <div class="contact-details">
+                    <span class="contact-uin">UIN: ${contact.uin}</span>
+                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                </div>
+            </div>
+            <div class="contact-actions">
+                <button class="contact-menu-btn" onclick="toggleContactMenu(event, '${contact.id}')">⋮</button>
+                <div class="contact-menu" id="menu-${contact.id}">
+                    <button class="menu-item" onclick="confirmDeleteChat('${contact.id}', '${contact.display_name}')">
+                        <span class="menu-icon">🗑️</span> Удалить чат
+                    </button>
+                    <button class="menu-item delete-contact" onclick="confirmDeleteContact('${contact.id}', '${contact.display_name}')">
+                        <span class="menu-icon">👤❌</span> Удалить контакт
+                    </button>
+                </div>
+            </div>
         `;
 
-         contactsList.appendChild(contactItem);
-    });
+        // Добавляем индикатор непрочитанных, если есть
+        if (unreadCount > 0) {
+            const indicator = document.createElement('div');
+            indicator.className = 'unread-indicator unread-blinking';
+            indicator.innerHTML = '✉️';
+            
+            if (unreadCount > 1) {
+                const counter = document.createElement('span');
+                counter.className = 'unread-count';
+                counter.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                indicator.appendChild(counter);
+            }
+            
+            contactItem.appendChild(indicator);
+        }
 
+        contactsList.appendChild(contactItem);
+    });
+}
 // Удалена лишняя } и весь второй блок кода (строки 826-887)
 
 // ... (остальной код файла остается без изменений) ...
@@ -1236,7 +1259,7 @@ function displayContacts(contactsData) {
     });
 */
 
-}
+
 
 function selectContact(contact, isMobileMenu = false) {
     // Отписываемся от предыдущей подписки на чат
@@ -2379,7 +2402,12 @@ function displayMobileContacts(contactsData) {
         const contactItem = document.createElement('div');
         contactItem.className = 'contact-item';
         contactItem.setAttribute('data-contact-id', contact.id);
-        contactItem.onclick = () => selectContact(contact, true);
+        contactItem.onclick = (e) => {
+            // Проверяем, не кликнули ли мы по меню
+            if (!e.target.closest('.contact-menu')) {
+                selectContact(contact, true);
+            }
+        };
         
         // Получаем количество непрочитанных сообщений
         const unreadCount = unreadMessages[contact.id] || 0;
@@ -2391,6 +2419,17 @@ function displayMobileContacts(contactsData) {
                 <div class="contact-details">
                     <span class="contact-uin">UIN: ${contact.uin}</span>
                     <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
+                </div>
+            </div>
+            <div class="contact-actions">
+                <button class="contact-menu-btn" onclick="toggleMobileContactMenu(event, '${contact.id}')">⋮</button>
+                <div class="contact-menu" id="mobile-menu-${contact.id}">
+                    <button class="menu-item" onclick="confirmDeleteChat('${contact.id}', '${contact.display_name}')">
+                        <span class="menu-icon">🗑️</span> Удалить чат
+                    </button>
+                    <button class="menu-item delete-contact" onclick="confirmDeleteContact('${contact.id}', '${contact.display_name}')">
+                        <span class="menu-icon">👤❌</span> Удалить контакт
+                    </button>
                 </div>
             </div>
         `;
