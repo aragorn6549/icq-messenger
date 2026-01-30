@@ -16,6 +16,13 @@ let unreadMessages = {}; // Объект для хранения непрочи�
 let allMessagesSubscription = null; // Подписка на ВСЕ сообщения (глобальная)
 let currentChatSubscription = null; // Подписка на текущий чат
 let contactRequestsSubscription = null;
+// Функции для контекстного меню
+let currentMenuAction = null;
+let currentContactId = null;
+let currentContactName = null;
+
+
+
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -3218,3 +3225,259 @@ document.addEventListener('DOMContentLoaded', () => {
     // Инициализация отслеживания активности (после загрузки профиля)
     // Это будет вызвано после успешной авторизации
 });
+
+// Функции для контекстного меню
+let currentMenuAction = null;
+let currentContactId = null;
+let currentContactName = null;
+
+function toggleContactMenu(event, contactId) {
+    event.stopPropagation();
+    
+    // Закрываем все остальные меню
+    document.querySelectorAll('.contact-menu').forEach(menu => {
+        if (menu.id !== `menu-${contactId}`) {
+            menu.classList.remove('show');
+        }
+    });
+    
+    const menu = document.getElementById(`menu-${contactId}`);
+    if (menu) {
+        menu.classList.toggle('show');
+    }
+}
+
+function toggleMobileContactMenu(event, contactId) {
+    event.stopPropagation();
+    
+    // Закрываем все остальные меню
+    document.querySelectorAll('.contact-menu').forEach(menu => {
+        if (menu.id !== `mobile-menu-${contactId}`) {
+            menu.classList.remove('show');
+        }
+    });
+    
+    const menu = document.getElementById(`mobile-menu-${contactId}`);
+    if (menu) {
+        menu.classList.toggle('show');
+    }
+}
+
+// Закрытие меню при клике вне его
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.contact-menu') && !event.target.closest('.contact-menu-btn')) {
+        document.querySelectorAll('.contact-menu').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
+});
+
+// Функции подтверждения удаления
+function confirmDeleteChat(contactId, contactName) {
+    currentMenuAction = 'delete_chat';
+    currentContactId = contactId;
+    currentContactName = contactName;
+    
+    document.getElementById('confirm-title').textContent = 'Удалить чат?';
+    document.getElementById('confirm-message').textContent = `Вы уверены, что хотите удалить всю переписку с ${contactName}?`;
+    document.getElementById('confirm-warning').textContent = 'Это действие нельзя отменить. Все сообщения будут удалены.';
+    document.getElementById('confirm-action-btn').textContent = 'Удалить чат';
+    
+    document.getElementById('confirm-modal').classList.add('show');
+}
+
+function confirmDeleteContact(contactId, contactName) {
+    currentMenuAction = 'delete_contact';
+    currentContactId = contactId;
+    currentContactName = contactName;
+    
+    document.getElementById('confirm-title').textContent = 'Удалить контакт?';
+    document.getElementById('confirm-message').textContent = `Вы уверены, что хотите удалить контакт ${contactName}?`;
+    document.getElementById('confirm-warning').textContent = 'Это удалит контакт у обоих пользователей и всю переписку. Это действие нельзя отменить.';
+    document.getElementById('confirm-action-btn').textContent = 'Удалить контакт';
+    
+    document.getElementById('confirm-modal').classList.add('show');
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirm-modal').classList.remove('show');
+    currentMenuAction = null;
+    currentContactId = null;
+    currentContactName = null;
+}
+
+// Обработчик кнопки подтверждения
+document.getElementById('confirm-action-btn').addEventListener('click', async function() {
+    if (currentMenuAction === 'delete_chat') {
+        await deleteChat(currentContactId);
+    } else if (currentMenuAction === 'delete_contact') {
+        await deleteContact(currentContactId);
+    }
+    
+    hideConfirmModal();
+});
+
+// Функция удаления чата
+async function deleteChat(contactId) {
+    try {
+        showLoading('Удаление переписки...');
+        
+        // Удаляем все сообщения между пользователями
+        const { error: messagesError } = await supabaseClient
+            .from('messages')
+            .delete()
+            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${currentUser.id})`);
+        
+        if (messagesError) throw messagesError;
+        
+        // Если этот контакт выбран, очищаем чат
+        if (selectedContact && selectedContact.id === contactId) {
+            const container = document.getElementById('messages-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="no-messages">
+                        <div>💬 История переписки удалена</div>
+                        <div class="hint">Начните новое общение с ${selectedContact.display_name}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        hideLoading();
+        showToast('✅ История переписки удалена');
+        
+        // Закрываем меню
+        document.querySelectorAll('.contact-menu').forEach(menu => {
+            menu.classList.remove('show');
+        });
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка удаления чата:', error);
+        showToast('❌ Ошибка при удалении чата', 'error');
+    }
+}
+
+// Функция удаления контакта
+async function deleteContact(contactId) {
+    try {
+        showLoading('Удаление контакта...');
+        
+        // Удаляем запись контакта у текущего пользователя
+        const { error: deleteError1 } = await supabaseClient
+            .from('contacts')
+            .delete()
+            .eq('user_id', currentUser.id)
+            .eq('contact_id', contactId);
+        
+        if (deleteError1) throw deleteError1;
+        
+        // Удаляем запись контакта у другого пользователя
+        const { error: deleteError2 } = await supabaseClient
+            .from('contacts')
+            .delete()
+            .eq('user_id', contactId)
+            .eq('contact_id', currentUser.id);
+        
+        if (deleteError2) throw deleteError2;
+        
+        // Удаляем все сообщения между пользователями
+        const { error: messagesError } = await supabaseClient
+            .from('messages')
+            .delete()
+            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${contactId}),and(sender_id.eq.${contactId},receiver_id.eq.${currentUser.id})`);
+        
+        if (messagesError) throw messagesError;
+        
+        // Если этот контакт выбран, сбрасываем выбор
+        if (selectedContact && selectedContact.id === contactId) {
+            selectedContact = null;
+            resetChatUI();
+        }
+        
+        // Обновляем списки контактов
+        await loadContacts();
+        await loadMobileContacts();
+        
+        hideLoading();
+        showToast('✅ Контакт удалён');
+        
+        // Закрываем меню
+        document.querySelectorAll('.contact-menu').forEach(menu => {
+            menu.classList.remove('show');
+        });
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Ошибка удаления контакта:', error);
+        showToast('❌ Ошибка при удалении контакта', 'error');
+    }
+}
+
+// Функция сброса интерфейса чата
+function resetChatUI() {
+    // Сбрасываем заголовок
+    document.getElementById('chat-title').textContent = '💬 Добро пожаловать!';
+    document.getElementById('chat-details').style.display = 'none';
+    document.getElementById('chat-avatar').style.display = 'none';
+    
+    // Сбрасываем поле ввода
+    document.getElementById('message-input').disabled = true;
+    document.getElementById('message-input').placeholder = 'Выберите контакт для общения...';
+    document.getElementById('send-btn').disabled = true;
+    
+    // Показываем приветственное сообщение
+    document.getElementById('welcome-message').style.display = 'block';
+    
+    // Очищаем контейнер сообщений
+    const container = document.getElementById('messages-container');
+    container.innerHTML = `
+        <div class="welcome-message" id="welcome-message">
+            <div class="welcome-icon">💬</div>
+            <h3>ICQ Messenger</h3>
+            <p>Выберите контакт из списка слева</p>
+            <div class="tips">
+                <div class="tip">💡 <strong>Совет:</strong> Добавьте контакты для общения</div>
+                <div class="tip">📱 <strong>Совет:</strong> Установите приложение для удобного доступа</div>
+            </div>
+        </div>
+    `;
+    
+    // Сбрасываем мобильную шапку
+    resetMobileHeader();
+}
+
+function hideModal() {
+    const modal = document.getElementById('add-contact-modal');
+    modal.style.display = 'none';
+    
+    // Восстанавливаем кнопки и очищаем поля
+    const footer = modal.querySelector('.modal-footer');
+    footer.style.display = 'block';
+    
+    const statusElement = document.getElementById('add-contact-status');
+    statusElement.style.display = 'none';
+    statusElement.textContent = '';
+    
+    document.getElementById('uin-input').value = '';
+    document.getElementById('add-contact-error').textContent = '';
+    document.getElementById('add-contact-message').textContent = '';
+    
+    // Очищаем содержимое модального окна
+    const modalBody = modal.querySelector('.modal-body');
+    modalBody.innerHTML = `
+        <div class="form-group">
+            <label for="uin-input">UIN или имя пользователя:</label>
+            <input type="text" id="uin-input" placeholder="Введите 9-значный UIN или имя">
+            <p class="hint">💡 Введите UIN пользователя, чтобы отправить ему запрос на добавление в контакты</p>
+            <p class="hint">📍 Ваш UIN: <span id="my-uin">---</span> (покажите друзьям)</p>
+        </div>
+        <div id="add-contact-status" class="contact-request-status" style="display:none;"></div>
+        <div class="modal-footer">
+            <button class="btn-primary" onclick="addContact()">Отправить запрос</button>
+            <button class="btn-secondary" onclick="hideModal()">Отмена</button>
+            <p id="add-contact-error" class="error"></p>
+            <p id="add-contact-message"></p>
+        </div>
+    `;
+}
