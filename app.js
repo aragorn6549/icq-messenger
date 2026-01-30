@@ -2053,20 +2053,24 @@ async function loadUnreadMessagesCount() {
         // Загружаем все непрочитанные сообщения
         const { data: messages, error } = await supabaseClient
             .from('messages')
-            .select('sender_id, count')
+            .select('sender_id')
             .eq('receiver_id', currentUser.id)
-            .eq('read', false)
-            .group('sender_id');
+            .eq('read', false);
         
         if (error) throw error;
         
         // Очищаем объект непрочитанных сообщений
         unreadMessages = {};
         
-        // Заполняем объект данными
+        // Вручную группируем сообщения по отправителям
         if (messages && messages.length > 0) {
-            messages.forEach(item => {
-                unreadMessages[item.sender_id] = item.count || 1;
+            messages.forEach(message => {
+                const senderId = message.sender_id;
+                if (unreadMessages[senderId]) {
+                    unreadMessages[senderId] += 1;
+                } else {
+                    unreadMessages[senderId] = 1;
+                }
             });
         }
         
