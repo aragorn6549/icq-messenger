@@ -2159,7 +2159,11 @@ async function loadUnreadMessagesCount() {
         console.log('Непрочитанные сообщения загружены:', unreadMessages);
         
         // Обновляем индикаторы у контактов
-        updateContactUnreadIndicators();
+        // ВМЕСТО updateContactUnreadIndicators() делаем:
+        Object.keys(unreadMessages).forEach(contactId => {
+            updateContactUnreadIndicator(contactId, unreadMessages[contactId]);
+        });
+        
         updateTabTitle(); // Обновляем заголовок вкладки
         
     } catch (error) {
