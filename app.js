@@ -1043,7 +1043,7 @@ async function confirmAddContact(contactUserId) {
     }
 }
 
-sync function loadContacts() {
+async function loadContacts() {
     if (!currentUser) return;
     
     try {
