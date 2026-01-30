@@ -273,11 +273,11 @@
             <div class="form-group">
                 <label for="uin-input">UIN или имя пользователя:</label>
                 <input type="text" id="uin-input" placeholder="Введите 9-значный UIN или имя">
-                <p class="hint">💡 Можно ввести 9-значный UIN (например: 123456789) или часть имени пользователя</p>
+                <p class="hint">💡 Введите UIN пользователя, чтобы отправить ему запрос на добавление в контакты</p>
                 <p class="hint">📍 Ваш UIN: <span id="my-uin">---</span> (покажите друзьям)</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary" onclick="addContact()">Найти и добавить</button>
+                <button class="btn-primary" onclick="addContact()">Отправить запрос</button>
                 <button class="btn-secondary" onclick="hideModal()">Отмена</button>
                 <p id="add-contact-error" class="error"></p>
                 <p id="add-contact-message"></p>
