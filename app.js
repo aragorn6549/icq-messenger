@@ -1712,6 +1712,7 @@ function subscribeToAllMessages() {
 } */
 
 // Функция для создания глобальной подписки на ВСЕ сообщения
+// Функция для создания глобальной подписки на ВСЕ сообщения
 function createGlobalMessagesSubscription() {
     if (allMessagesSubscription) {
         supabaseClient.removeChannel(allMessagesSubscription);
@@ -1720,39 +1721,57 @@ function createGlobalMessagesSubscription() {
     
     if (!currentUser) return;
     
-    console.log('Создаем глобальную подписку на ВСЕ сообщения');
+    console.log('Создаем глобальную подписку на ВСЕ сообщения для пользователя:', currentUser.id);
     
     allMessagesSubscription = supabaseClient
-        .channel(`global-messages-${currentUser.id}-${Date.now()}`)
+        .channel('global-messages-channel')
         .on(
             'postgres_changes',
             {
                 event: 'INSERT',
                 schema: 'public',
                 table: 'messages',
-                filter: `receiver_id.eq.${currentUser.id}`
+                filter: `receiver_id=eq.${currentUser.id}`
             },
             async (payload) => {
-                console.log('НОВОЕ СООБЩЕНИЕ ПОЛУЧЕНО:', payload.new);
+                console.log('🔥 НОВОЕ СООБЩЕНИЕ ПОЛУЧЕНО (глобальная подписка):', payload.new);
                 
                 // Игнорируем свои сообщения
-                if (payload.new.sender_id === currentUser.id) return;
+                if (payload.new.sender_id === currentUser.id) {
+                    console.log('Игнорирую свое сообщение');
+                    return;
+                }
                 
                 // Получаем информацию об отправителе
                 const { data: sender } = await supabaseClient
                     .from('profiles')
-                    .select('display_name')
+                    .select('display_name, id')
                     .eq('id', payload.new.sender_id)
                     .single();
                 
                 const senderName = sender?.display_name || 'Неизвестный';
+                console.log('Сообщение от:', senderName);
                 
                 // Ситуация 1: Если это сообщение от ВЫБРАННОГО контакта
                 if (selectedContact && selectedContact.id === payload.new.sender_id) {
                     console.log('Сообщение от текущего контакта, добавляем в чат');
+                    
+                    // Добавляем сообщение в чат
                     addMessageToDisplay(payload.new, false);
+                    
+                    // Отмечаем как прочитанное
                     await markMessagesAsRead(selectedContact.id);
+                    
+                    // Сбрасываем счетчик непрочитанных для этого контакта
+                    resetUnreadCount(selectedContact.id);
+                    
+                    // Прокручиваем к новому сообщению
                     scrollToNewMessages();
+                    
+                    // Показываем уведомление если окно не активно
+                    if (!document.hasFocus() || !isTabActive) {
+                        showMessageNotification(payload.new, senderName);
+                    }
                 } 
                 // Ситуация 2: Если это сообщение от ДРУГОГО контакта
                 else {
@@ -1762,18 +1781,28 @@ function createGlobalMessagesSubscription() {
                     incrementUnreadCount(payload.new.sender_id);
                     
                     // Обновляем списки контактов
-                    updateContactsUnreadIndicators('contacts-list');
-                    updateContactsUnreadIndicators('mobile-contacts-list');
+                    await loadContacts();
+                    await loadMobileContacts();
                     
                     // Обновляем заголовок вкладки
                     updateTabTitle();
                     
                     // Показываем уведомление
-                    showMessageNotification(payload.new);
-                    
-                    // Обновляем статус контакта в списках
-                    updateContactStatus(payload.new.sender_id, 'online', new Date().toISOString());
+                    showMessageNotification(payload.new, senderName);
                 }
+            }
+        )
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id=eq.${currentUser.id}`
+            },
+            (payload) => {
+                console.log('Сообщение обновлено:', payload.new);
+                // Можно добавить обработку прочитанных сообщений
             }
         )
         .subscribe((status) => {
@@ -1784,6 +1813,7 @@ function createGlobalMessagesSubscription() {
         });
 }
 
+
 // Функция для подписки на текущий выбранный чат
 function subscribeToCurrentChat() {
     if (currentChatSubscription) {
@@ -1793,10 +1823,10 @@ function subscribeToCurrentChat() {
     
     if (!selectedContact || !currentUser) return;
     
-    console.log('Подписываемся на чат с:', selectedContact.display_name);
+    console.log('Подписываемся на чат с:', selectedContact.display_name, 'ID:', selectedContact.id);
     
     currentChatSubscription = supabaseClient
-        .channel(`chat-${currentUser.id}-${selectedContact.id}-${Date.now()}`)
+        .channel(`chat-${currentUser.id}-${selectedContact.id}`)
         .on(
             'postgres_changes',
             {
@@ -1806,7 +1836,7 @@ function subscribeToCurrentChat() {
                 filter: `and(sender_id.eq.${selectedContact.id},receiver_id.eq.${currentUser.id})`
             },
             async (payload) => {
-                console.log('Новое сообщение в текущем чате:', payload.new);
+                console.log('💬 Новое сообщение в текущем чате от', selectedContact.display_name + ':', payload.new.content);
                 
                 // Добавляем сообщение в чат
                 addMessageToDisplay(payload.new, false);
@@ -1819,12 +1849,24 @@ function subscribeToCurrentChat() {
                 
                 // Сбрасываем счетчик для этого контакта
                 resetUnreadCount(selectedContact.id);
+                
+                // Обновляем заголовок вкладки
+                updateTabTitle();
+                
+                // Показываем уведомление если окно не активно
+                if (!document.hasFocus() || !isTabActive) {
+                    showMessageNotification(payload.new, selectedContact.display_name);
+                }
             }
         )
         .subscribe((status) => {
             console.log('Статус подписки на чат:', status);
             if (status === 'SUBSCRIBED') {
                 console.log('✅ Подписка на чат активна!');
+            } else if (status === 'CLOSED') {
+                console.log('❌ Подписка на чат закрыта');
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error('❌ Ошибка подписки на чат');
             }
         });
 }
@@ -3441,6 +3483,63 @@ function resetChatUI() {
     
     // Сбрасываем мобильную шапку
     resetMobileHeader();
+}
+
+// Функция для переподключения всех подписок
+async function reconnectSubscriptions() {
+    console.log('Попытка переподключения подписок...');
+    
+    // Отписываемся от всего
+    unsubscribeFromAll();
+    
+    // Ждем немного
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Создаем глобальную подписку
+    createGlobalMessagesSubscription();
+    
+    // Подписываемся на запросы
+    subscribeToContactRequests();
+    
+    // Подписываемся на статусы
+    subscribeToStatusUpdates();
+    
+    // Если есть выбранный контакт, подписываемся на чат
+    if (selectedContact) {
+        subscribeToCurrentChat();
+    }
+    
+    console.log('Подписки переподключены');
+}
+
+// Добавьте обработку потери соединения
+function initNetworkStatus() {
+    window.addEventListener('online', async () => {
+        networkStatus = 'online';
+        showToast('✅ Соединение восстановлено');
+        
+        // Переподключаем подписки
+        await reconnectSubscriptions();
+        
+        if (currentUser) {
+            await updateUserStatus('online');
+        }
+    });
+    
+    window.addEventListener('offline', async () => {
+        networkStatus = 'offline';
+        showToast('⚠️ Нет подключения к интернету');
+        
+        if (currentUser) {
+            await updateUserStatus('offline');
+        }
+    });
+    
+    // Проверяем текущий статус сети
+    if (!navigator.onLine) {
+        networkStatus = 'offline';
+        showToast('⚠️ Нет подключения к интернету');
+    }
 }
 
 function hideModal() {
