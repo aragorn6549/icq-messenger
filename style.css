@@ -122,11 +122,11 @@ body {
     margin-left: var(--spacing-sm);
 }
 
-.status-online { background-color: #400000; }
-.status-away { background-color: #400000; }
-.status-dnd { background-color: #400000; }
-.status-invisible { background-color: #400000; }
-.status-offline { background-color: #400000; }
+.status-online { background-color: #FFFFFF; }
+.status-away { background-color: #FFFFFF; }
+.status-dnd { background-color: #FFFFFF; }
+.status-invisible { background-color: #FFFFFF; }
+.status-offline { background-color: #FFFFFF; }
 
 .status-select {
     padding: var(--spacing-xs) var(--spacing-sm);
