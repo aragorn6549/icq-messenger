@@ -34,6 +34,156 @@ function initSupabase() {
     console.log('Supabase инициализирован.');
 }
 
+// === PUSH-УВЕДОМЛЕНИЯ ДАЖЕ КОГДА ПРИЛОЖЕНИЕ ЗАКРЫТО ===
+
+// Функция для подписки на пуш-уведомления
+async function subscribeToPushNotifications() {
+    console.log('🔔 Пытаемся подписаться на пуш-уведомления...');
+    
+    // Проверяем, поддерживает ли браузер пуш-уведомления
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('❌ Этот браузер не поддерживает пуш-уведомления');
+        showToast('Ваш браузер не поддерживает push-уведомления', 'warning');
+        return false;
+    }
+    
+    try {
+        // Получаем нашего "почтальона" (Service Worker)
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Проверяем, подписан ли уже пользователь
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (subscription) {
+            console.log('✅ Уже подписан на пуш-уведомления');
+            return true;
+        }
+        
+        // Запрашиваем разрешение у пользователя
+        const permission = await Notification.requestPermission();
+        
+        if (permission !== 'granted') {
+            console.log('❌ Пользователь не разрешил уведомления');
+            showToast('Разрешите уведомления, чтобы получать сообщения когда приложение закрыто', 'warning');
+            return false;
+        }
+        
+        // Ключ для подписки (используем твой PUBLIC KEY)
+        const vapidPublicKey = 'BHX3bIZ-0cN2e6JHITJDlZz7A5gBqLrT9Db34tGSkla1UH0-yJxtBmEFcT07L4S_hIKOUlm8C0V0xPWlzM47UDA';
+        
+        // Функция для преобразования ключа
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        
+        // Подписываемся!
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+        });
+        
+        console.log('✅ Подписка создана:', subscription);
+        
+        // Сохраняем подписку в Supabase
+        const { data, error } = await supabaseClient
+            .from('push_subscriptions')
+            .upsert([{
+                user_id: currentUser.id,
+                endpoint: subscription.endpoint,
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth
+            }], {
+                onConflict: 'user_id'
+            });
+        
+        if (error) throw error;
+        
+        console.log('✅ Подписка сохранена в базе данных');
+        showToast('✅ Push-уведомления активированы! Сообщения будут приходить даже когда приложение закрыто');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Ошибка подписки:', error);
+        showToast('Ошибка настройки push-уведомлений', 'error');
+        return false;
+    }
+}
+
+// Функция для отправки пуш-уведомления другу
+async function sendPushNotificationToUser(receiverId, senderName, message) {
+    console.log(`📤 Отправляем пуш-уведомление пользователю ${receiverId}`);
+    
+    try {
+        // 1. Находим подписку друга в базе данных
+        const { data: subscription, error } = await supabaseClient
+            .from('push_subscriptions')
+            .select('*')
+            .eq('user_id', receiverId)
+            .single();
+        
+        if (error || !subscription) {
+            console.log('❌ У пользователя нет подписки на пуш-уведомления');
+            return false;
+        }
+        
+        // 2. Подготавливаем данные для отправки
+        const pushSubscription = {
+            endpoint: subscription.endpoint,
+            keys: {
+                p256dh: subscription.p256dh,
+                auth: subscription.auth
+            }
+        };
+        
+        // 3. Подготавливаем сообщение
+        const pushMessage = {
+            title: `💬 ${senderName}`,
+            body: message.length > 100 ? message.substring(0, 100) + '...' : message,
+            icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+            data: {
+                url: window.location.origin,
+                sender_id: currentUser.id,
+                sender_name: senderName
+            }
+        };
+        
+        // 4. Отправляем уведомление через наш сервер на Render
+        const response = await fetch('https://push-server-nrmf.onrender.com', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                subscription: pushSubscription,
+                message: pushMessage
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ Push-уведомление отправлено!');
+            return true;
+        } else {
+            console.error('❌ Ошибка отправки push-уведомления');
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка:', error);
+        return false;
+    }
+}
+//=================================================================//
 // Функция для загрузки настроек уведомлений из localStorage
 function loadNotificationSettings() {
     const saved = localStorage.getItem('icq_notifications_enabled');
@@ -1457,6 +1607,24 @@ async function sendMessage() {
         }
         
         console.log('Сообщение отправлено получателю:', selectedContact.id);
+
+     // Отправляем push-уведомление другу (даже если приложение закрыто!)
+        setTimeout(async () => {
+            try {
+                // Получаем имя отправителя
+                const senderName = currentUser.user_metadata?.display_name || 
+                                   currentUser.email.split('@')[0] || 
+                                   'Кто-то';
+                
+                await sendPushNotificationToUser(
+                    selectedContact.id, // ID друга
+                    senderName, // Твое имя
+                    content // Текст сообщения
+                );
+            } catch (pushError) {
+                console.log('Push-уведомление не отправлено, но сообщение доставлено');
+            }
+        }, 1000);
         
     } catch (error) {
         console.error('Ошибка отправки сообщения:', error);
@@ -2100,19 +2268,31 @@ async function toggleNotifications() {
     }
     
     if (Notification.permission === 'default') {
-        // Если разрешение еще не запрошено
+        // Запрашиваем разрешение
         await requestNotificationPermission();
+        
+        // После разрешения подписываемся на пуш-уведомления
+        if (Notification.permission === 'granted') {
+            await subscribeToPushNotifications();
+        }
         return;
     }
     
-    // Если разрешение уже получено - переключаем нашу настройку
-    notificationsEnabled = !notificationsEnabled;
-    saveNotificationSettings(notificationsEnabled);
-    
+    // Если уже есть разрешение
     if (notificationsEnabled) {
-        showToast('🔔 Уведомления включены');
-    } else {
+        // Выключаем
+        notificationsEnabled = false;
+        saveNotificationSettings(false);
         showToast('🔕 Уведомления отключены');
+    } else {
+        // Включаем
+        notificationsEnabled = true;
+        saveNotificationSettings(true);
+        
+        // Подписываемся на пуш-уведомления
+        await subscribeToPushNotifications();
+        
+        showToast('🔔 Уведомления включены (даже когда приложение закрыто!)');
     }
     
     updateNotificationButtonState();
