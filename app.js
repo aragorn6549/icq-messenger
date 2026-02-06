@@ -23,6 +23,7 @@ let currentContactName = null;
 
 // Флаг для отслеживания, были ли запрошены уведомления
 let notificationPermissionRequested = false;
+let notificationsEnabled = true; // Флаг включения/выключения уведомлений в приложении
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -31,6 +32,22 @@ function initSupabase() {
     const { createClient } = window.supabase || window.Supabase;
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
     console.log('Supabase инициализирован.');
+}
+
+// Функция для загрузки настроек уведомлений из localStorage
+function loadNotificationSettings() {
+    const saved = localStorage.getItem('icq_notifications_enabled');
+    if (saved !== null) {
+        notificationsEnabled = JSON.parse(saved);
+        console.log('Настройки уведомлений загружены:', notificationsEnabled);
+    }
+}
+
+// Функция для сохранения настроек уведомлений в localStorage
+function saveNotificationSettings(enabled) {
+    notificationsEnabled = enabled;
+    localStorage.setItem('icq_notifications_enabled', JSON.stringify(enabled));
+    console.log('Настройки уведомлений сохранены:', enabled);
 }
 
 // Функция для обновления мобильной шапки контакта
@@ -1842,11 +1859,15 @@ function updateContactInList(listId, contactId, newStatus, lastSeen) {
 
 // Функция для показа уведомлений о сообщениях
 async function showMessageNotification(message, senderName = 'Неизвестный') {
-    console.log('Попытка показать уведомление от:', senderName);
+    // Проверяем, включены ли уведомления в нашем приложении
+    if (!notificationsEnabled) {
+        console.log('Уведомления отключены пользователем в приложении');
+        return;
+    }
     
-    // Проверяем, разрешены ли уведомления
+    // Проверяем, разрешены ли уведомления в браузере
     if (!('Notification' in window) || Notification.permission !== 'granted') {
-        console.log('Уведомления не разрешены');
+        console.log('Уведомления не разрешены в браузере');
         return;
     }
     
@@ -2018,39 +2039,44 @@ async function requestNotificationPermission() {
     if (!('Notification' in window)) {
         console.log('Браузер не поддерживает уведомления');
         showToast('Ваш браузер не поддерживает уведомления', 'error');
+        updateNotificationButtonState();
         return false;
     }
     
     if (Notification.permission === 'granted') {
         console.log('Разрешение на уведомления уже получено');
-        updateNotificationButtonState(true);
+        // Включаем уведомления в нашем приложении
+        saveNotificationSettings(true);
+        updateNotificationButtonState();
         return true;
     }
     
     if (Notification.permission === 'denied') {
         console.log('Пользователь заблокировал уведомления');
-        updateNotificationButtonState(false, true);
         showToast('Уведомления заблокированы. Разблокируйте в настройках браузера.', 'warning');
+        updateNotificationButtonState();
         return false;
     }
     
     try {
         console.log('Запрашиваем разрешение на уведомления...');
-        showToast('Запрашиваем разрешение на уведомления...', 'info');
+        showToast('Разрешите уведомления для получения сообщений', 'info');
         
         const permission = await Notification.requestPermission();
         
         if (permission === 'granted') {
             console.log('Разрешение на уведомления получено');
             notificationPermissionRequested = true;
-            updateNotificationButtonState(true);
-            showToast('✅ Уведомления включены! Вы будете получать уведомления о новых сообщениях.');
+            saveNotificationSettings(true);
+            updateNotificationButtonState();
+            showToast('✅ Уведомления включены!');
             return true;
         } else {
             console.log('Пользователь отказал в уведомлениях');
             notificationPermissionRequested = true;
-            updateNotificationButtonState(false);
-            showToast('Уведомления отключены. Вы можете включить их в настройках браузера.', 'info');
+            saveNotificationSettings(false);
+            updateNotificationButtonState();
+            showToast('Уведомления отключены', 'info');
             return false;
         }
     } catch (error) {
@@ -2060,76 +2086,133 @@ async function requestNotificationPermission() {
     }
 }
 
+// Функция для переключения состояния уведомлений в приложении
+async function toggleNotifications() {
+    if (!('Notification' in window)) {
+        showToast('Ваш браузер не поддерживает уведомления', 'error');
+        return;
+    }
+    
+    if (Notification.permission === 'denied') {
+        showToast('Уведомления заблокированы в настройках браузера', 'warning');
+        updateNotificationButtonState();
+        return;
+    }
+    
+    if (Notification.permission === 'default') {
+        // Если разрешение еще не запрошено
+        await requestNotificationPermission();
+        return;
+    }
+    
+    // Если разрешение уже получено - переключаем нашу настройку
+    notificationsEnabled = !notificationsEnabled;
+    saveNotificationSettings(notificationsEnabled);
+    
+    if (notificationsEnabled) {
+        showToast('🔔 Уведомления включены');
+    } else {
+        showToast('🔕 Уведомления отключены');
+    }
+    
+    updateNotificationButtonState();
+}
+
 // Функция для обновления состояния кнопок уведомлений
-function updateNotificationButtonState(enabled = false, blocked = false) {
+function updateNotificationButtonState() {
     const desktopButton = document.getElementById('enable-notifications-btn');
     const mobileButton = document.getElementById('mobile-enable-notifications-btn');
     
-    if (blocked) {
-        // Если уведомления заблокированы в настройках браузера
+    if (!('Notification' in window)) {
+        // Браузер не поддерживает уведомления
         if (desktopButton) {
-            desktopButton.innerHTML = '🔕 Разблокируйте в настройках';
+            desktopButton.innerHTML = '🔕 Не поддерживается';
+            desktopButton.style.background = 'linear-gradient(135deg, #757575, #616161)';
+            desktopButton.onclick = null;
+            desktopButton.style.cursor = 'default';
+        }
+        if (mobileButton) {
+            mobileButton.innerHTML = '🔕 Не поддерживается';
+            mobileButton.style.background = 'linear-gradient(135deg, #757575, #616161)';
+            mobileButton.onclick = null;
+            mobileButton.style.cursor = 'default';
+        }
+        return;
+    }
+    
+    const permission = Notification.permission;
+    
+    if (permission === 'denied') {
+        // Уведомления заблокированы в настройках браузера
+        if (desktopButton) {
+            desktopButton.innerHTML = '🔕 Заблокировано';
             desktopButton.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
             desktopButton.onclick = () => {
                 showToast('Перейдите в настройки браузера, чтобы разрешить уведомления', 'info');
             };
+            desktopButton.style.cursor = 'pointer';
         }
         if (mobileButton) {
-            mobileButton.innerHTML = '🔕 Разблокировать';
+            mobileButton.innerHTML = '🔕 Заблокировано';
             mobileButton.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
             mobileButton.onclick = () => {
                 showToast('Перейдите в настройки браузера, чтобы разрешить уведомления', 'info');
             };
+            mobileButton.style.cursor = 'pointer';
         }
-    } else if (enabled) {
-        // Если уведомления включены
-        if (desktopButton) {
-            desktopButton.innerHTML = '🔔 Уведомления включены';
-            desktopButton.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-            desktopButton.onclick = null; // Убираем обработчик, так как уже включено
-            desktopButton.style.cursor = 'default';
-            desktopButton.style.opacity = '0.8';
-            // Скрываем кнопку через несколько секунд
-            setTimeout(() => {
-                if (desktopButton && desktopButton.parentNode) {
-                    desktopButton.style.display = 'none';
-                }
-            }, 5000);
-        }
-        if (mobileButton) {
-            mobileButton.innerHTML = '🔔 Включены';
-            mobileButton.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-            mobileButton.onclick = null;
-            mobileButton.style.cursor = 'default';
-            mobileButton.style.opacity = '0.8';
-            // Скрываем кнопку через несколько секунд
-            setTimeout(() => {
-                if (mobileButton && mobileButton.parentNode) {
-                    mobileButton.style.display = 'none';
-                }
-            }, 5000);
+    } else if (permission === 'granted') {
+        // Разрешение получено
+        if (notificationsEnabled) {
+            // Уведомления включены
+            if (desktopButton) {
+                desktopButton.innerHTML = '🔔 Уведомления вкл';
+                desktopButton.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+                desktopButton.onclick = toggleNotifications;
+                desktopButton.style.cursor = 'pointer';
+            }
+            if (mobileButton) {
+                mobileButton.innerHTML = '🔔 Вкл';
+                mobileButton.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+                mobileButton.onclick = () => {
+                    toggleNotifications();
+                    hideMobileMenu();
+                };
+                mobileButton.style.cursor = 'pointer';
+            }
+        } else {
+            // Уведомления отключены пользователем
+            if (desktopButton) {
+                desktopButton.innerHTML = '🔕 Уведомления выкл';
+                desktopButton.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                desktopButton.onclick = toggleNotifications;
+                desktopButton.style.cursor = 'pointer';
+            }
+            if (mobileButton) {
+                mobileButton.innerHTML = '🔕 Выкл';
+                mobileButton.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                mobileButton.onclick = () => {
+                    toggleNotifications();
+                    hideMobileMenu();
+                };
+                mobileButton.style.cursor = 'pointer';
+            }
         }
     } else {
-        // Если уведомления еще не запрашивались или отключены
+        // Разрешение еще не запрошено (default)
         if (desktopButton) {
             desktopButton.innerHTML = '🔔 Включить уведомления';
             desktopButton.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
-            desktopButton.onclick = async () => {
-                await requestNotificationPermission();
-            };
+            desktopButton.onclick = toggleNotifications;
             desktopButton.style.cursor = 'pointer';
-            desktopButton.style.opacity = '1';
-            desktopButton.style.display = 'block';
         }
         if (mobileButton) {
             mobileButton.innerHTML = '🔔 Включить';
             mobileButton.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
-            mobileButton.onclick = async () => {
-                await requestNotificationPermission();
+            mobileButton.onclick = () => {
+                toggleNotifications();
+                hideMobileMenu();
             };
             mobileButton.style.cursor = 'pointer';
-            mobileButton.style.opacity = '1';
-            mobileButton.style.display = 'block';
         }
     }
 }
@@ -2145,11 +2228,6 @@ function addNotificationPermissionButton() {
     const desktopButton = document.createElement('button');
     desktopButton.id = 'enable-notifications-btn';
     desktopButton.className = 'notification-permission-btn';
-    desktopButton.innerHTML = '🔔 Включить уведомления';
-    
-    desktopButton.onclick = async () => {
-        await requestNotificationPermission();
-    };
     
     // Добавляем в десктопное меню
     const userInfo = document.getElementById('user-info');
@@ -2166,25 +2244,12 @@ function addNotificationPermissionButton() {
         const mobileButton = document.createElement('button');
         mobileButton.id = 'mobile-enable-notifications-btn';
         mobileButton.className = 'notification-permission-btn mobile';
-        mobileButton.innerHTML = '🔔 Включить';
-        
-        mobileButton.onclick = async () => {
-            await requestNotificationPermission();
-            // Закрываем мобильное меню после нажатия
-            hideMobileMenu();
-        };
         
         mobileUserBottom.insertBefore(mobileButton, mobileUserBottom.firstChild);
     }
     
-    // Проверяем текущий статус разрешений и обновляем состояние кнопок
-    if (Notification.permission === 'granted') {
-        updateNotificationButtonState(true);
-    } else if (Notification.permission === 'denied') {
-        updateNotificationButtonState(false, true);
-    } else {
-        updateNotificationButtonState(false);
-    }
+    // Обновляем состояние кнопок
+    updateNotificationButtonState();
 }
 
 
@@ -3125,6 +3190,9 @@ function hideNewMessagesIndicator() {
 function showMainScreen() {
     console.log('Показываем главный экран');
     
+    // Загружаем настройки уведомлений
+    loadNotificationSettings();
+    
     // Показываем основной экран
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'flex';
@@ -3181,13 +3249,12 @@ function showMainScreen() {
     addNotificationPermissionButton();
     
     // Автоматически запрашиваем уведомления при первом входе (только если еще не запрашивали)
-    if (!notificationPermissionRequested && currentUser) {
+    if (!notificationPermissionRequested && currentUser && Notification.permission === 'default') {
         setTimeout(async () => {
-            if (Notification.permission === 'default') {
-                console.log('Автоматически запрашиваем уведомления при первом входе');
-                await requestNotificationPermission();
-            }
-        }, 3000); // Ждем 3 секунды после загрузки
+            console.log('Автоматически запрашиваем уведомления при первом входе');
+            // Только информационное сообщение, не запрашиваем автоматически
+            showToast('Нажмите кнопку "Уведомления" чтобы включить их', 'info');
+        }, 3000);
     }
 }
 
