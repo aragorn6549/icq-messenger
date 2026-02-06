@@ -2467,3 +2467,68 @@ body {
     font-size: 13px;
     margin: 0 10px 0 0;
 }
+
+/* Стили для кнопки разрешения уведомлений */
+.notification-permission-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 5px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    font-weight: 500;
+}
+
+.notification-permission-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.notification-permission-btn:active {
+    transform: translateY(0);
+}
+
+/* Для кнопки с включенными уведомлениями */
+.notification-permission-btn.enabled {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    cursor: default;
+    opacity: 0.8;
+}
+
+.notification-permission-btn.enabled:hover {
+    transform: none;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+/* Для кнопки с заблокированными уведомлениями */
+.notification-permission-btn.blocked {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    cursor: not-allowed;
+}
+
+/* Для мобильного меню */
+.notification-permission-btn.mobile {
+    padding: 8px 12px;
+    font-size: 13px;
+    width: calc(100% - 10px);
+    margin: 5px auto;
+}
+
+/* Анимация для изменения состояния кнопки */
+@keyframes buttonPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.notification-permission-btn.changing {
+    animation: buttonPulse 0.5s ease;
+}
