@@ -125,17 +125,26 @@ async function sendPushNotificationToUser(receiverId, senderName, message) {
     console.log(`📤 Отправляем пуш-уведомление пользователю ${receiverId}`);
     
     try {
-        // 1. Находим подписку друга в базе данных
+        // 1. Находим подписку друга в базе данных через клиент Supabase
         const { data: subscription, error } = await supabaseClient
             .from('push_subscriptions')
             .select('*')
             .eq('user_id', receiverId)
             .single();
         
-        if (error || !subscription) {
+        if (error) {
+            console.error('❌ Ошибка при получении подписки:', error);
+            
+            // Если подписка не найдена, проверяем через прямой API запрос
+            return await sendPushNotificationDirectAPI(receiverId, senderName, message);
+        }
+        
+        if (!subscription) {
             console.log('❌ У пользователя нет подписки на пуш-уведомления');
             return false;
         }
+        
+        console.log('✅ Подписка найдена:', subscription);
         
         // 2. Подготавливаем данные для отправки
         const pushSubscription = {
@@ -158,8 +167,8 @@ async function sendPushNotificationToUser(receiverId, senderName, message) {
             }
         };
         
-        // 4. Отправляем уведомление через наш сервер на Render
-        const response = await fetch('https://push-server-nrmf.onrender.com', {
+        // 4. Отправляем уведомление через наш сервер
+        const response = await fetch('https://icq-push-server.onrender.com/send-push', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -174,7 +183,7 @@ async function sendPushNotificationToUser(receiverId, senderName, message) {
             console.log('✅ Push-уведомление отправлено!');
             return true;
         } else {
-            console.error('❌ Ошибка отправки push-уведомления');
+            console.error('❌ Ошибка отправки push-уведомления:', await response.text());
             return false;
         }
         
@@ -183,6 +192,133 @@ async function sendPushNotificationToUser(receiverId, senderName, message) {
         return false;
     }
 }
+
+// Альтернативная функция для отправки через прямой API запрос
+async function sendPushNotificationDirectAPI(receiverId, senderName, message) {
+    console.log('🔄 Пробуем прямой API запрос...');
+    
+    try {
+        const supabaseUrl = 'https://dcxdpieejeuhyeybfbff.supabase.co';
+        const supabaseKey = 'sb_publishable_1mKGAaO6CgUbkIObl7-O0A_YBoE8fxq';
+        
+        // Прямой запрос к REST API Supabase
+        const response = await fetch(
+            `${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${receiverId}`,
+            {
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+        
+        const subscriptions = await response.json();
+        
+        if (!subscriptions || subscriptions.length === 0) {
+            console.log('❌ Пользователь не подписан на уведомления');
+            return false;
+        }
+        
+        const subscription = subscriptions[0];
+        console.log('✅ Подписка получена через прямой API');
+        
+        // Отправляем push-уведомление
+        const pushResponse = await fetch('https://icq-push-server.onrender.com/send-push', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                subscription: {
+                    endpoint: subscription.endpoint,
+                    keys: {
+                        p256dh: subscription.p256dh,
+                        auth: subscription.auth
+                    }
+                },
+                message: {
+                    title: `💬 ${senderName}`,
+                    body: message.length > 100 ? message.substring(0, 100) + '...' : message,
+                    icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                    data: {
+                        url: window.location.origin,
+                        sender_id: currentUser.id,
+                        sender_name: senderName
+                    }
+                }
+            })
+        });
+        
+        return pushResponse.ok;
+        
+    } catch (error) {
+        console.error('❌ Ошибка прямого API:', error);
+        return false;
+    }
+}
+
+// Функция для проверки всех подписок
+async function checkAllSubscriptions() {
+    try {
+        console.log('🔍 Проверяю все подписки...');
+        
+        const { data: subscriptions, error } = await supabaseClient
+            .from('push_subscriptions')
+            .select('*');
+        
+        if (error) {
+            console.error('❌ Ошибка получения подписок:', error);
+            
+            // Пробуем прямой запрос
+            const response = await fetch(
+                'https://dcxdpieejeuhyeybfbff.supabase.co/rest/v1/push_subscriptions',
+                {
+                    headers: {
+                        'apikey': 'sb_publishable_1mKGAaO6CgUbkIObl7-O0A_YBoE8fxq',
+                        'Authorization': 'Bearer sb_publishable_1mKGAaO6CgUbkIObl7-O0A_YBoE8fxq',
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Подписки через прямой API:', data);
+            }
+            
+            return;
+        }
+        
+        console.log('✅ Все подписки в базе:', subscriptions);
+        
+        if (subscriptions.length === 0) {
+            console.log('📭 В базе нет ни одной подписки');
+            showToast('❌ Никто не подписан на push-уведомления');
+        } else {
+            console.log(`📬 Найдено ${subscriptions.length} подписок`);
+            
+            // Проверяем есть ли подписка у текущего пользователя
+            const mySubscription = subscriptions.find(sub => sub.user_id === currentUser.id);
+            if (mySubscription) {
+                console.log('✅ У вас есть подписка');
+            } else {
+                console.log('❌ У вас нет подписки');
+                showToast('Нажмите кнопку "Уведомления" чтобы подписаться');
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка проверки подписок:', error);
+    }
+}
+
+
 //=================================================================//
 // Функция для загрузки настроек уведомлений из localStorage
 function loadNotificationSettings() {
@@ -3428,14 +3564,21 @@ function showMainScreen() {
     // Добавляем кнопку для разрешения уведомлений
     addNotificationPermissionButton();
     
-    // Автоматически запрашиваем уведомления при первом входе (только если еще не запрашивали)
-    if (!notificationPermissionRequested && currentUser && Notification.permission === 'default') {
+    // Автоматически запрашиваем уведомления при первом входе
+    if (!notificationPermissionRequested && currentUser) {
         setTimeout(async () => {
-            console.log('Автоматически запрашиваем уведомления при первом входе');
-            // Только информационное сообщение, не запрашиваем автоматически
-            showToast('Нажмите кнопку "Уведомления" чтобы включить их', 'info');
+            if (Notification.permission === 'default') {
+                console.log('Автоматически запрашиваем уведомления при первом входе');
+                await requestNotificationPermission();
+            }
         }, 3000);
     }
+
+     // Проверяем все подписки через 2 секунды после входа
+    setTimeout(() => {
+        checkAllSubscriptions();
+    }, 2000);
+    
 }
 
 
