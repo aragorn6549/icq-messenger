@@ -21,8 +21,8 @@ let currentMenuAction = null;
 let currentContactId = null;
 let currentContactName = null;
 
-
-
+// Флаг для отслеживания, были ли запрошены уведомления
+let notificationPermissionRequested = false;
 
 // === ИНИЦИАЛИЗАЦИЯ SUPABASE ===
 function initSupabase() {
@@ -1111,8 +1111,6 @@ async function loadContacts() {
     }
 }
 
-
-
 function displayContacts(contactsData) {
     const contactsList = document.getElementById('contacts-list');
     if (!contactsList) return;
@@ -1211,62 +1209,6 @@ function displayContacts(contactsData) {
         contactsList.appendChild(contactItem);
     });
 }
-// Удалена лишняя } и весь второй блок кода (строки 826-887)
-
-// ... (остальной код файла остается без изменений) ...
-    
-    // Подготавливаем данные для отображения
- /*   const contacts = contactsData.map(item => {
-        // Проверяем разные форматы ответа
-        if (item.profiles) {
-            return {
-                id: item.profiles.id,
-                display_name: item.profiles.display_name,
-                uin: item.profiles.uin,
-                status: item.profiles.status,
-                last_seen: item.profiles.last_seen
-            };
-        } else if (item.profiles) { // альтернативный формат
-            return {
-                id: item.profiles.id,
-                display_name: item.profiles.display_name,
-                uin: item.profiles.uin,
-                status: item.profiles.status,
-                last_seen: item.profiles.last_seen
-            };
-        }
-        return null;
-    }).filter(Boolean);
-    
-    // Сортировка: онлайн -> оффлайн -> по имени
-    contacts.sort((a, b) => {
-        if (a.status === 'online' && b.status !== 'online') return -1;
-        if (a.status !== 'online' && b.status === 'online') return 1;
-        return a.display_name.localeCompare(b.display_name);
-    });
-    
-    // Создаем элементы контактов
-    contacts.forEach(contact => {
-        const contactItem = document.createElement('div');
-        contactItem.className = 'contact-item';
-        contactItem.onclick = () => selectContact(contact); // Важно: без второго параметра
-        
-        contactItem.innerHTML = `
-            <div class="contact-avatar">${contact.display_name.charAt(0).toUpperCase()}</div>
-            <div class="contact-info">
-                <div class="contact-name">${contact.display_name}</div>
-                <div class="contact-details">
-                    <span class="contact-uin">UIN: ${contact.uin}</span>
-                    <span class="contact-status status-${contact.status}">${getStatusEmoji(contact.status)}</span>
-                </div>
-            </div>
-        `;
-        
-        contactsList.appendChild(contactItem);
-    });
-*/
-
-
 
 function selectContact(contact, isMobileMenu = false) {
     // Отписываемся от предыдущей подписки на чат
@@ -1506,7 +1448,6 @@ async function sendMessage() {
     }
 }
 
-
 // Функция для добавления сообщения в отображение
 function addMessageToDisplay(message, isSent) {
     const container = document.getElementById('messages-container');
@@ -1612,106 +1553,6 @@ function cleanupEmptyDates() {
     });
 }
 
-/*function subscribeToMessages() {
-    if (messagesSubscription) {
-        supabaseClient.removeChannel(messagesSubscription);
-        messagesSubscription = null;
-    }
-    
-    if (!selectedContact || !currentUser) return;
-    
-    console.log('Подписываемся на сообщения с контактом:', selectedContact.display_name);
-    
-    messagesSubscription = supabaseClient
-        .channel(`private-chat-${Math.min(currentUser.id, selectedContact.id)}-${Math.max(currentUser.id, selectedContact.id)}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `or(sender_id.eq.${selectedContact.id},receiver_id.eq.${selectedContact.id})`
-            },
-            async (payload) => {
-                console.log('Новое сообщение в текущем чате:', payload.new);
-                
-                // Если это сообщение от нас самих, игнорируем
-                if (payload.new.sender_id === currentUser.id) {
-                    return;
-                }
-                
-                // Добавляем сообщение в чат
-                addMessageToDisplay(payload.new, false);
-                
-                // Отмечаем как прочитанное
-                await markMessagesAsRead(selectedContact.id);
-                
-                // Сбрасываем счетчик непрочитанных для этого контакта
-                resetUnreadCount(selectedContact.id);
-                
-                // Показываем уведомление, если окно не в фокусе
-                showMessageNotification(payload.new);
-            }
-        )
-        .subscribe((status) => {
-            console.log('Статус подписки на сообщения:', status);
-        });
-}  
-
-// Глобальная подписка на ВСЕ сообщения пользователя
-function subscribeToAllMessages() {
-    if (allMessagesSubscription) {
-        supabaseClient.removeChannel(allMessagesSubscription);
-        allMessagesSubscription = null;
-    }
-    
-    if (!currentUser) return;
-    
-    console.log('Создаем глобальную подписку на все сообщения');
-    
-    allMessagesSubscription = supabaseClient
-        .channel(`global-messages-${currentUser.id}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `receiver_id.eq.${currentUser.id}`
-            },
-            async (payload) => {
-                console.log('Глобальное уведомление о новом сообщении:', payload.new);
-                
-                // Игнорируем свои сообщения
-                if (payload.new.sender_id === currentUser.id) {
-                    return;
-                }
-                
-                // Игнорируем сообщения от выбранного контакта (они обрабатываются в другой подписке)
-                if (selectedContact && payload.new.sender_id === selectedContact.id) {
-                    return;
-                }
-                
-                // Увеличиваем счетчик непрочитанных для отправителя
-                incrementUnreadCount(payload.new.sender_id);
-                
-                // Обновляем списки контактов
-                await loadContacts();
-                await loadMobileContacts();
-                
-                // Показываем уведомление
-                showMessageNotification(payload.new);
-                
-                // Обновляем заголовок вкладки
-                updateTabTitle();
-            }
-        )
-        .subscribe((status) => {
-            console.log('Статус глобальной подписки:', status);
-        });
-} */
-
-// Функция для создания глобальной подписки на ВСЕ сообщения
 // Функция для создания глобальной подписки на ВСЕ сообщения
 function createGlobalMessagesSubscription() {
     if (allMessagesSubscription) {
@@ -1813,7 +1654,6 @@ function createGlobalMessagesSubscription() {
         });
 }
 
-
 // Функция для подписки на текущий выбранный чат
 function subscribeToCurrentChat() {
     if (currentChatSubscription) {
@@ -1909,44 +1749,6 @@ function unsubscribeFromAll() {
     }
 }
 
-/* function subscribeToMessages() {
-    if (messagesSubscription) {
-        supabaseClient.removeChannel(messagesSubscription);
-    }
-    
-    if (!selectedContact || !currentUser) return;
-    
-    messagesSubscription = supabaseClient
-        .channel(`private-chat-${Math.min(currentUser.id, selectedContact.id)}-${Math.max(currentUser.id, selectedContact.id)}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `or(sender_id.eq.${selectedContact.id},receiver_id.eq.${selectedContact.id})`
-            },
-            async (payload) => {
-                console.log('Новое сообщение:', payload.new);
-                
-                // Если это сообщение от нас самих, игнорируем (мы уже добавили его локально)
-                if (payload.new.sender_id === currentUser.id) {
-                    return;
-                }
-                
-                // Добавляем сообщение в чат
-                addMessageToDisplay(payload.new, false);
-                
-                // Отмечаем сообщение как прочитанное
-                await markMessagesAsRead(selectedContact.id);
-                
-                // Показываем уведомление, если окно не в фокусе
-                showMessageNotification(payload.new);
-            }
-        )
-        .subscribe();
-}    */
-
 // Функция для подписки на изменения статусов контактов
 function subscribeToStatusUpdates() {
     if (statusSubscription) {
@@ -2039,55 +1841,80 @@ function updateContactInList(listId, contactId, newStatus, lastSeen) {
 }
 
 // Функция для показа уведомлений о сообщениях
-async function showMessageNotification(message) {
-    // Если окно активно и в фокусе - не показываем уведомление
-    if (document.hasFocus() && isTabActive) {
-        console.log('Окно активно, уведомление не нужно');
+async function showMessageNotification(message, senderName = 'Неизвестный') {
+    console.log('Попытка показать уведомление от:', senderName);
+    
+    // Определяем мобильное устройство
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Для мобильных устройств всегда показываем уведомления если не в активном окне
+    if (isMobile && document.hasFocus() && isTabActive) {
+        console.log('Мобильное устройство активно, уведомление не нужно');
+        return;
+    }
+    
+    // Для десктопов используем старую логику
+    if (!isMobile && document.hasFocus() && isTabActive) {
+        console.log('Десктоп активно, уведомление не нужно');
         return;
     }
     
     try {
-        // Получаем информацию об отправителе
-        const { data: sender } = await supabaseClient
-            .from('profiles')
-            .select('display_name')
-            .eq('id', message.sender_id)
-            .single();
-        
-        const senderName = sender?.display_name || 'Неизвестный';
-        const messageText = message.content.length > 50 
+        const unreadCount = getUnreadCount(message.sender_id);
+        let notificationBody = message.content.length > 50 
             ? message.content.substring(0, 50) + '...' 
             : message.content;
         
-        // Получаем общее количество непрочитанных от этого отправителя
-        const unreadCount = getUnreadCount(message.sender_id);
-        
-        // Формируем текст уведомления
-        let notificationBody = messageText;
         if (unreadCount > 1) {
-            notificationBody = `(${unreadCount}) ${messageText}`;
+            notificationBody = `(${unreadCount}) ${notificationBody}`;
         }
         
-        // Показываем браузерное уведомление
+        const title = `💬 ${senderName}`;
+        
+        // Используем Service Worker если он доступен
+        if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                
+                // Для мобильных устройств отправляем через Service Worker
+                await registration.showNotification(title, {
+                    body: notificationBody,
+                    icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                    badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
+                    tag: 'icq-message',
+                    vibrate: [200, 100, 200],
+                    data: {
+                        url: window.location.origin,
+                        sender_id: message.sender_id,
+                        sender_name: senderName
+                    },
+                    requireInteraction: true // Особенно важно для мобильных
+                });
+                
+                console.log('Уведомление отправлено через Service Worker');
+                return;
+            } catch (swError) {
+                console.error('Ошибка Service Worker:', swError);
+                // Продолжаем с обычными уведомлениями
+            }
+        }
+        
+        // Стандартные уведомления
         if ('Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification(`💬 ${senderName}`, {
+            const notification = new Notification(title, {
                 body: notificationBody,
                 icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
                 badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
                 tag: 'icq-message',
-                requireInteraction: false,
-                silent: false,
-                vibrate: [200, 100, 200]
+                vibrate: [200, 100, 200],
+                requireInteraction: true // Заставляет уведомление оставаться на экране
             });
             
-            // При клике на уведомление активируем окно
             notification.onclick = () => {
                 window.focus();
                 notification.close();
                 
-                // Если мы знаем, от кого сообщение, открываем чат с ним
                 if (message.sender_id) {
-                    // Находим контакт
                     const contactElement = document.querySelector(`.contact-item[data-contact-id="${message.sender_id}"]`);
                     if (contactElement) {
                         contactElement.click();
@@ -2095,19 +1922,19 @@ async function showMessageNotification(message) {
                 }
             };
             
-            // Автоматически закрываем через 5 секунд
+            // На мобильных оставляем уведомление дольше
             setTimeout(() => {
-                notification.close();
-            }, 5000);
+                if (notification.close) notification.close();
+            }, isMobile ? 10000 : 5000);
+            
         } else {
-            // Если уведомления не разрешены, показываем toast
-            const toastText = unreadCount > 1 
-                ? `💬 ${unreadCount} новых сообщений от ${senderName}`
-                : `💬 Новое сообщение от ${senderName}`;
-            showToast(toastText, 'info');
+            // Fallback для браузеров без поддержки уведомлений или если не разрешено
+            console.log('Уведомления не доступны или не разрешены');
+            showToast(`💬 ${senderName}: ${notificationBody}`, 'info');
         }
     } catch (error) {
         console.error('Ошибка при показе уведомления:', error);
+        showToast(`Новое сообщение от ${senderName}`, 'info');
     }
 }
 
@@ -2133,7 +1960,6 @@ async function markMessagesAsRead(contactId) {
         console.error('Ошибка при пометке сообщений как прочитанных:', error);
     }
 }
-
 
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ИМЕНИ ===
 function showEditNameModal() {
@@ -2202,6 +2028,7 @@ async function saveDisplayName() {
 async function requestNotificationPermission() {
     if (!('Notification' in window)) {
         console.log('Браузер не поддерживает уведомления');
+        showToast('Ваш браузер не поддерживает уведомления', 'error');
         return false;
     }
     
@@ -2210,25 +2037,84 @@ async function requestNotificationPermission() {
         return true;
     }
     
-    if (Notification.permission !== 'denied') {
-        try {
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                console.log('Разрешение на уведомления получено');
-                showToast('🔔 Уведомления включены');
-                return true;
-            } else {
-                console.log('Пользователь отказал в уведомлениях');
-                return false;
-            }
-        } catch (error) {
-            console.error('Ошибка запроса разрешения на уведомления:', error);
+    if (Notification.permission === 'denied') {
+        console.log('Пользователь заблокировал уведомления');
+        showToast('Уведомления заблокированы. Разблокируйте в настройках браузера.', 'warning');
+        return false;
+    }
+    
+    try {
+        console.log('Запрашиваем разрешение на уведомления...');
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+            console.log('Разрешение на уведомления получено');
+            showToast('✅ Уведомления включены');
+            notificationPermissionRequested = true;
+            return true;
+        } else {
+            console.log('Пользователь отказал в уведомлениях');
+            showToast('Уведомления отключены', 'info');
             return false;
+        }
+    } catch (error) {
+        console.error('Ошибка запроса разрешения на уведомления:', error);
+        showToast('Ошибка запроса уведомлений', 'error');
+        return false;
+    }
+}
+
+// Функция для добавления кнопки разрешения уведомлений
+function addNotificationPermissionButton() {
+    // Проверяем, не добавлена ли уже кнопка
+    if (document.getElementById('enable-notifications-btn')) {
+        return;
+    }
+    
+    // Создаем кнопку
+    const button = document.createElement('button');
+    button.id = 'enable-notifications-btn';
+    button.className = 'notification-permission-btn';
+    button.innerHTML = '🔔 Включить уведомления';
+    
+    button.onclick = async () => {
+        const granted = await requestNotificationPermission();
+        if (granted) {
+            button.style.display = 'none';
+            // Скрываем также мобильную кнопку если есть
+            const mobileButton = document.getElementById('mobile-enable-notifications-btn');
+            if (mobileButton) {
+                mobileButton.style.display = 'none';
+            }
+        }
+    };
+    
+    // Добавляем в десктопное меню (если есть user-info)
+    const userInfo = document.getElementById('user-info');
+    if (userInfo) {
+        const userInfoRight = userInfo.querySelector('.user-info-right');
+        if (userInfoRight) {
+            userInfoRight.insertBefore(button, userInfoRight.firstChild);
         }
     }
     
-    console.log('Пользователь заблокировал уведомления');
-    return false;
+    // Добавляем в мобильное меню
+    const mobileUserBottom = document.querySelector('.mobile-user-bottom');
+    if (mobileUserBottom) {
+        const mobileButton = button.cloneNode(true);
+        mobileButton.id = 'mobile-enable-notifications-btn';
+        mobileButton.className = 'notification-permission-btn mobile';
+        mobileUserBottom.insertBefore(mobileButton, mobileUserBottom.firstChild);
+    }
+    
+    // Проверяем текущий статус разрешений
+    if (Notification.permission === 'granted') {
+        button.style.display = 'none';
+        const mobileButton = document.getElementById('mobile-enable-notifications-btn');
+        if (mobileButton) {
+            mobileButton.style.display = 'none';
+        }
+    }
 }
 
 async function installPWA() {
@@ -2271,7 +2157,10 @@ function initServiceWorker() {
                     });
                 });
             })
-            .catch(err => console.error('Ошибка Service Worker:', err));
+            .catch(err => {
+                console.error('Ошибка Service Worker:', err);
+                showToast('Ошибка инициализации Service Worker', 'error');
+            });
     }
 }
 
@@ -2309,10 +2198,10 @@ function initNetworkStatus() {
             updateStatusDisplay('offline');
             
             // Обновляем селект статуса
-            const statusSelect = document.getElementById('status-select');
-            const mobileStatusSelect = document.getElementById('mobile-status-select');
-            if (statusSelect) statusSelect.value = 'offline';
-            if (mobileStatusSelect) mobileStatusSelect.value = 'offline';
+                const statusSelect = document.getElementById('status-select');
+                const mobileStatusSelect = document.getElementById('mobile-status-select');
+                if (statusSelect) statusSelect.value = 'offline';
+                if (mobileStatusSelect) mobileStatusSelect.value = 'offline';
             
             // Обновляем мобильное меню
             updateMobileUserInfo();
@@ -2325,7 +2214,6 @@ function initNetworkStatus() {
         showToast('⚠️ Нет подключения к интернету');
     }
 }
-
 
 // === ФУНКЦИИ ДЛЯ МОБИЛЬНОГО МЕНЮ ===
 
@@ -2403,6 +2291,7 @@ async function loadMobileContacts() {
         console.error('Ошибка загрузки контактов для мобильного меню:', error);
     }
 }
+
 // Отображение контактов в мобильном меню
 function displayMobileContacts(contactsData) {
     const contactsList = document.getElementById('mobile-contacts-list');
@@ -2758,7 +2647,7 @@ function showAddContact() {
 function showAuthScreen() {
     console.log('Показываем экран авторизации');
     document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('main-screen').style.display = 'none';
+    document.getElementById('main-screen').display = 'none';
     document.getElementById('user-info').style.display = 'none';
     
     // Прячем шапки на экране авторизации
@@ -2819,7 +2708,6 @@ async function loadUnreadMessagesCount() {
         console.log('Непрочитанные сообщения загружены:', unreadMessages);
         
         // Обновляем индикаторы у контактов
-        // ВМЕСТО updateContactUnreadIndicators() делаем:
         Object.keys(unreadMessages).forEach(contactId => {
             updateContactUnreadIndicator(contactId, unreadMessages[contactId]);
         });
@@ -2904,7 +2792,7 @@ function updateContactsUnreadIndicators(listId) {
             if (!indicator) {
                 indicator = document.createElement('div');
                 indicator.className = 'unread-indicator';
-                indicator.innerHTML = '✉️'; // Иконка конвертика
+                indicator.innerHTML = '✉️';
                 contactItem.appendChild(indicator);
             }
             
@@ -3003,7 +2891,7 @@ function resetUnreadCount(contactId) {
     if (unreadMessages[contactId]) {
         delete unreadMessages[contactId];
         updateContactUnreadIndicator(contactId);
-        updateTabTitle(); // Добавляем обновление заголовка
+        updateTabTitle();
     }
 }
 
@@ -3012,7 +2900,7 @@ function incrementUnreadCount(contactId) {
     const currentCount = unreadMessages[contactId] || 0;
     unreadMessages[contactId] = currentCount + 1;
     updateContactUnreadIndicator(contactId, currentCount + 1);
-    updateTabTitle(); // Добавляем обновление заголовка
+    updateTabTitle();
 }
 
 // === ФУНКЦИИ ОТСЛЕЖИВАНИЯ АКТИВНОСТИ И СТАТУСОВ ===
@@ -3066,7 +2954,7 @@ function initActivityTracking() {
                     updateUserStatus('away');
                     updateStatusDisplay('away');
                 }
-            }, 300000); // 5 минут
+            }, 300000);
         }
     });
 }
@@ -3079,7 +2967,7 @@ function checkUserActivity() {
     const inactiveTime = now - lastActivityTime;
     
     // Если пользователь неактивен более 5 минут и онлайн
-    if (inactiveTime > 300000 && // 5 минут
+    if (inactiveTime > 300000 &&
         currentUser.status === 'online' &&
         isTabActive &&
         networkStatus === 'online') {
@@ -3149,7 +3037,6 @@ function showNewMessagesIndicator(count = 1) {
         countElement.textContent = count;
         indicator.classList.add('show');
         
-        // Автоматически скрываем через 10 секунд
         setTimeout(() => {
             hideNewMessagesIndicator();
         }, 10000);
@@ -3218,8 +3105,10 @@ function showMainScreen() {
         initActivityTracking();
         initWindowFocusTracking();
     }, 1000);
+    
+    // Добавляем кнопку для разрешения уведомлений
+    addNotificationPermissionButton();
 }
-
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', () => {
@@ -3227,9 +3116,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Инициализация Supabase
     initSupabase();
-    
-    // Запрос разрешения на уведомления
-    requestNotificationPermission();
     
     // Инициализация Service Worker для PWA
     initServiceWorker();
@@ -3264,10 +3150,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (installBtn) installBtn.style.display = 'none';
     });
     
-    // Инициализация отслеживания активности (после загрузки профиля)
-    // Это будет вызвано после успешной авторизации
+    // Обработчик сообщений от Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+            console.log('Сообщение от Service Worker:', event.data);
+            
+            if (event.data && event.data.type === 'OPEN_CHAT' && event.data.sender_id) {
+                // Находим контакт по sender_id и открываем чат
+                const contactElement = document.querySelector(`.contact-item[data-contact-id="${event.data.sender_id}"]`);
+                if (contactElement) {
+                    contactElement.click();
+                }
+            }
+        });
+    }
 });
-
 
 function toggleContactMenu(event, contactId) {
     event.stopPropagation();
