@@ -2369,4 +2369,6 @@ body {
 .user-info-right .notification-permission-btn {
     width: auto;
     padding: 8px 12px;
-    font
+    font-size: 13px;
+    margin: 0 10px 0 0;
+}
