@@ -359,15 +359,15 @@ body {
 }
 
 .contacts-search {
-    margin-bottom: var(--spacing-md);
+    padding: 0 15px 10px 15px; /* Добавляем отступы */
 }
 
 .contacts-search input {
     width: 100%;
-    padding: var(--spacing-sm);
+    padding: 8px 12px; /* Уменьшаем padding */
     border: 1px solid var(--text-light);
-    border-radius: var(--border-radius);
-    font-size: 0.9rem;
+    border-radius: 20px; /* Уменьшаем радиус */
+    font-size: 14px; /* Уменьшаем шрифт */
     background: rgba(255, 255, 255, 0.8);
 }
 
@@ -390,22 +390,16 @@ body {
     background: rgba(255, 255, 255, 0.5);
 }
 
-.contact-item:hover {
-    background: rgba(102, 126, 234, 0.1);
+/* Уменьшаем контакты в списке */
+.contact-item {
+    padding: 8px 15px; /* Уменьшаем padding */
+    gap: 10px; /* Уменьшаем gap */
 }
 
 .contact-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 0.9rem;
-    flex-shrink: 0;
+    width: 36px; /* Уменьшаем размер */
+    height: 36px;
+    font-size: 0.8rem; /* Уменьшаем шрифт */
 }
 
 .contact-info {
@@ -414,19 +408,11 @@ body {
 }
 
 .contact-name {
-    font-weight: 600;
-    color: var(--text-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.9rem; /* Уменьшаем шрифт */
 }
 
 .contact-details {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: 0.8rem;
-    color: var(--text-light);
+    font-size: 0.75rem; /* Уменьшаем шрифт */
 }
 
 .contact-uin {
@@ -513,6 +499,32 @@ body {
     }
 }
 
+/* Для очень маленьких экранов */
+@media (max-width: 360px) {
+    .mobile-sidebar {
+        width: 300px; /* Еще немного уменьшаем на очень маленьких экранах */
+        left: -300px;
+    }
+    
+    .mobile-header.menu-open {
+        transform: translateX(300px) !important;
+    }
+    
+    .mobile-user-bottom {
+        flex-wrap: wrap; /* Разрешаем перенос на 2 строки */
+        justify-content: space-between;
+    }
+    
+    .mobile-status-select {
+        width: 100%; /* Селект на всю ширину */
+        margin-bottom: 8px;
+    }
+    
+    .mobile-user-buttons {
+        width: 100%;
+        justify-content: center;
+    }
+}
 .menu-toggle {
     position: relative;
     background: none;
@@ -1046,8 +1058,8 @@ body {
 .mobile-sidebar {
     position: fixed;
     top: 0;
-    left: -280px;
-    width: 280px;
+    left: -320px; /* Увеличиваем с 280px до 320px */
+    width: 320px; /* Увеличиваем ширину */
     height: 100vh;
     background: var(--card-bg);
     backdrop-filter: blur(10px);
@@ -1056,14 +1068,117 @@ body {
     box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
+    overflow-y: auto; /* Добавляем прокрутку если не помещается */
 }
 
 .mobile-sidebar.show {
     left: 0;
 }
 
+/* Обновляем анимацию шапки */
+.mobile-header.menu-open {
+    transform: translateX(320px) !important; /* Соответственно увеличиваем сдвиг */
+}
+
+/* Обновляем информацию о пользователе */
+.mobile-user-info {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 15px; /* Уменьшаем padding */
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Уменьшаем gap */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mobile-user-top {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Уменьшаем gap */
+}
+
+.mobile-user-avatar {
+    width: 50px; /* Уменьшаем с 60px */
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px; /* Уменьшаем шрифт */
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.mobile-user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-user-name {
+    font-weight: bold;
+    font-size: 16px; /* Уменьшаем шрифт */
+    margin-bottom: 3px; /* Уменьшаем отступ */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mobile-user-uin {
+    font-size: 12px; /* Уменьшаем шрифт */
+    opacity: 0.9;
+    margin-bottom: 2px; /* Уменьшаем отступ */
+}
+
+.mobile-user-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Уменьшаем gap */
+    flex-wrap: nowrap; /* Запрещаем перенос */
+}
+
+.mobile-status-select {
+    flex: 1;
+    padding: 8px 10px; /* Уменьшаем padding */
+    border-radius: 20px; /* Уменьшаем радиус */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 12px; /* Уменьшаем шрифт */
+    min-width: 0; /* Разрешаем сжатие */
+    height: 36px; /* Фиксируем высоту */
+}
+
+/* Делаем кнопки более компактными */
+.mobile-user-buttons {
+    display: flex;
+    gap: 6px; /* Уменьшаем gap между кнопками */
+}
+
+.mobile-user-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px; /* Уменьшаем размер */
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px; /* Уменьшаем шрифт */
+    transition: all 0.2s;
+    flex-shrink: 0; /* Запрещаем сжатие */
+}
+
+.mobile-user-btn.logout {
+    background: rgba(255, 50, 50, 0.3);
+    font-size: 12px; /* Уменьшаем шрифт */
+}
+
+/* Уменьшаем размеры остальных элементов в меню */
 .mobile-sidebar-header {
-    padding: 20px 15px;
+    padding: 15px; /* Уменьшаем padding */
     background: rgba(102, 126, 234, 0.1);
     border-bottom: 1px solid var(--text-light);
     display: flex;
@@ -1073,9 +1188,10 @@ body {
 
 .mobile-sidebar-header h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1rem; /* Уменьшаем шрифт */
     color: var(--primary-color);
 }
+
 
 /* ===== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ ===== */
 .mobile-user-info {
@@ -1998,10 +2114,9 @@ body {
     margin-bottom: 10px;
 }
 
+/* Уменьшаем заголовок входящих запросов */
 .contact-requests-header h4 {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
+    font-size: 0.9rem; /* Уменьшаем шрифт */
 }
 
 .requests-count {
@@ -2025,29 +2140,16 @@ body {
     overflow-y: auto;
 }
 
+/* Уменьшаем элементы запросов */
 .contact-request-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.7);
-    border-radius: 8px;
-    border: 1px solid rgba(102, 126, 234, 0.3);
-    animation: fadeIn 0.3s ease-out;
+    padding: 8px; /* Уменьшаем padding */
+    gap: 8px; /* Уменьшаем gap */
 }
 
 .request-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 0.8rem;
-    flex-shrink: 0;
+    width: 28px; /* Уменьшаем размер */
+    height: 28px;
+    font-size: 0.7rem; /* Уменьшаем шрифт */
 }
 
 .request-info {
@@ -2056,18 +2158,11 @@ body {
 }
 
 .request-name {
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--text-color);
-    margin-bottom: 2px;
+    font-size: 0.8rem; /* Уменьшаем шрифт */
 }
 
 .request-details {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.7rem;
-    color: var(--text-light);
+    font-size: 0.65rem; /* Уменьшаем шрифт */
 }
 
 .request-time {
