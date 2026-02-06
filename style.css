@@ -2328,3 +2328,45 @@ body {
 .confirm-btn.delete:hover {
     background: #d32f2f;
 }
+
+
+/* Стили для кнопки разрешения уведомлений */
+.notification-permission-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.notification-permission-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.notification-permission-btn:active {
+    transform: translateY(0);
+}
+
+/* Для мобильного меню */
+.notification-permission-btn.mobile {
+    padding: 8px 12px;
+    font-size: 13px;
+    margin: 5px 0;
+}
+
+/* Для десктопа */
+.user-info-right .notification-permission-btn {
+    width: auto;
+    padding: 8px 12px;
+    font
