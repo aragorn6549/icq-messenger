@@ -2248,7 +2248,7 @@ function hideMobileMenu() {
         // Ждем окончания анимации перед полным скрытием
         setTimeout(() => {
             sidebar.style.display = 'none';
-        }, 300); // Должно совпадать с длительностью анимации в CSS
+        }, 300);
     }
     
     if (overlay) overlay.classList.remove('show');
