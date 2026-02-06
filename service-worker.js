@@ -1,3 +1,48 @@
+// === НАСТРОЙКИ ДЛЯ PUSH-УВЕДОМЛЕНИЙ ===
+
+// ВСТАВЬ СЮДА СВОЙ PUBLIC KEY который ты скопировал
+const VAPID_PUBLIC_KEY = 'BHX3bIZ-0cN2e6JHITJDlZz7A5gBqLrT9Db34tGSkla1UH0-yJxtBmEFcT07L4S_hIKOUlm8C0V0xPWlzM47UDA';
+
+// Функция для преобразования ключа (просто копируй)
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+// Функция для сохранения "адреса друга" в базе данных
+async function saveSubscriptionToDatabase(subscription, userId) {
+    try {
+        // Отправляем данные в Supabase
+        const { data, error } = await supabaseClient
+            .from('push_subscriptions')
+            .insert([{
+                user_id: userId,
+                endpoint: subscription.endpoint,
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth,
+                created_at: new Date().toISOString()
+            }]);
+        
+        if (error) throw error;
+        return true;
+    } catch (error) {
+        console.error('Ошибка сохранения подписки:', error);
+        return false;
+    }
+}
+
+
+
 const CACHE_NAME = 'icq-messenger-v2';
 const APP_NAME = 'ICQ Messenger';
 
@@ -84,17 +129,24 @@ self.addEventListener('fetch', event => {
 });
 
 // Обработка push-уведомлений
+// Пуш-уведомление пришло (даже когда приложение закрыто!)
 self.addEventListener('push', event => {
-    console.log(`${APP_NAME}: Получено push-уведомление`);
+    console.log('📨 Получено push-уведомление!');
 
     let notificationData = {
         title: 'ICQ Messenger',
-        body: 'Новое сообщение',
+        body: 'Новое сообщение! 📩',
         icon: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
         badge: 'https://img.icons8.com/color/96/000000/speech-bubble.png',
-        data: { url: '/' }
+        vibrate: [200, 100, 200], // Телефон вибрирует
+        requireInteraction: true, // Уведомление не пропадет само
+        data: { 
+            url: window.location.origin,
+            timestamp: new Date().toISOString()
+        }
     };
 
+    // Если пришло сообщение с данными
     if (event.data) {
         try {
             const data = event.data.json();
@@ -103,33 +155,23 @@ self.addEventListener('push', event => {
                 body: data.body || 'Новое сообщение',
                 icon: data.icon || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
                 badge: data.badge || 'https://img.icons8.com/color/96/000000/speech-bubble.png',
-                data: data.data || { url: '/' }
+                data: data.data || { 
+                    url: window.location.origin,
+                    sender_id: data.sender_id,
+                    sender_name: data.sender_name 
+                },
+                vibrate: [200, 100, 200],
+                requireInteraction: true
             };
         } catch (error) {
-            // Если данные не JSON, используем как текст
+            // Если данные пришли как текст
             notificationData.body = event.data.text() || 'Новое сообщение';
         }
     }
 
+    // Показываем уведомление!
     event.waitUntil(
-        self.registration.showNotification(notificationData.title, {
-            body: notificationData.body,
-            icon: notificationData.icon,
-            badge: notificationData.badge,
-            tag: 'icq-message',
-            vibrate: [200, 100, 200],
-            data: notificationData.data,
-            actions: [
-                {
-                    action: 'open',
-                    title: 'Открыть'
-                },
-                {
-                    action: 'close',
-                    title: 'Закрыть'
-                }
-            ]
-        })
+        self.registration.showNotification(notificationData.title, notificationData)
     );
 });
 
